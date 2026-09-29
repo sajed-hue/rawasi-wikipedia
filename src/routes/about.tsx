@@ -90,16 +90,13 @@ const featureIcons = [Box, ShoppingCart, BookOpen, Send, ImageIcon, Users];
 const statIcons = [FileCheck, Clock, Users];
 const statValues = ["115", "150", "+99"];
 
-function Photo({ src, className = "" }: { src: string; className?: string }) {
+function Photo({ className = "" }: { className?: string }) {
   return (
-    <img
-      src={src}
-      alt=""
-      loading="lazy"
-      width={944}
-      height={704}
-      className={`aspect-[4/3] w-full rounded-3xl object-cover shadow-[var(--shadow-card)] ${className}`}
-    />
+    <div
+      className={`grid aspect-[4/3] w-full place-items-center rounded-3xl border border-[color-mix(in_oklab,var(--gold)_45%,transparent)] bg-card text-muted-foreground/60 shadow-[var(--shadow-card)] ${className}`}
+    >
+      <ImageIcon className="h-10 w-10" />
+    </div>
   );
 }
 
