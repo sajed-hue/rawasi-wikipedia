@@ -125,9 +125,9 @@ function AboutPage() {
       {/* 2. Second row + hub buttons */}
       <section className="mx-auto max-w-6xl px-4 pt-6">
         <div className="grid gap-4 sm:grid-cols-3">
-          <Photo src={olive} />
+          <Photo />
           <div className="relative">
-            <Photo src={oldcity} />
+            <Photo />
             <Link
               to="/explore"
               className="absolute inset-x-0 top-1/2 mx-auto w-fit -translate-y-1/2 rounded-full bg-background/95 px-6 py-3 text-sm font-bold text-primary shadow-[var(--shadow-soft)]"
@@ -135,7 +135,7 @@ function AboutPage() {
               {c.startExplore}
             </Link>
           </div>
-          <Photo src={oil} />
+          <Photo />
         </div>
         <div className="mt-8 flex flex-wrap justify-center gap-4">
           <Button variant="outline" size="lg" className="rounded-full px-10" asChild>
