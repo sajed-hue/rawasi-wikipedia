@@ -12,12 +12,6 @@ import {
   Users,
 } from "lucide-react";
 
-import coffee from "@/assets/about-coffee.jpg";
-import oil from "@/assets/about-oil.jpg";
-import oldcity from "@/assets/about-oldcity.jpg";
-import olive from "@/assets/about-olive.jpg";
-import pottery from "@/assets/about-pottery.jpg";
-import tatreez from "@/assets/about-tatreez.jpg";
 import { Button } from "@/components/ui/button";
 import { useLanguage } from "@/lib/i18n";
 
