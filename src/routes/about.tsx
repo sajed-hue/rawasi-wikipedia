@@ -12,12 +12,6 @@ import {
   Users,
 } from "lucide-react";
 
-import coffee from "@/assets/about-coffee.jpg";
-import oil from "@/assets/about-oil.jpg";
-import oldcity from "@/assets/about-oldcity.jpg";
-import olive from "@/assets/about-olive.jpg";
-import pottery from "@/assets/about-pottery.jpg";
-import tatreez from "@/assets/about-tatreez.jpg";
 import { Button } from "@/components/ui/button";
 import { useLanguage } from "@/lib/i18n";
 
@@ -96,16 +90,13 @@ const featureIcons = [Box, ShoppingCart, BookOpen, Send, ImageIcon, Users];
 const statIcons = [FileCheck, Clock, Users];
 const statValues = ["115", "150", "+99"];
 
-function Photo({ src, className = "" }: { src: string; className?: string }) {
+function Photo({ className = "" }: { className?: string }) {
   return (
-    <img
-      src={src}
-      alt=""
-      loading="lazy"
-      width={944}
-      height={704}
-      className={`aspect-[4/3] w-full rounded-3xl object-cover shadow-[var(--shadow-card)] ${className}`}
-    />
+    <div
+      className={`grid aspect-[4/3] w-full place-items-center rounded-3xl border border-[color-mix(in_oklab,var(--gold)_45%,transparent)] bg-card text-muted-foreground/60 shadow-[var(--shadow-card)] ${className}`}
+    >
+      <ImageIcon className="h-10 w-10" />
+    </div>
   );
 }
 
@@ -121,22 +112,22 @@ function AboutPage() {
         <p className="mx-auto mt-5 max-w-3xl leading-loose text-muted-foreground">{c.heroText}</p>
         <div className="mt-10 grid gap-4 sm:grid-cols-3">
           <div className="relative">
-            <Photo src={pottery} />
+            <Photo />
             <span className="absolute bottom-3 left-3 grid h-11 w-11 place-items-center rounded-full bg-primary text-primary-foreground ring-2 ring-[color-mix(in_oklab,var(--gold)_60%,transparent)]">
               <MessageCircle className="h-5 w-5" />
             </span>
           </div>
-          <Photo src={coffee} />
-          <Photo src={tatreez} />
+          <Photo />
+          <Photo />
         </div>
       </section>
 
       {/* 2. Second row + hub buttons */}
       <section className="mx-auto max-w-6xl px-4 pt-6">
         <div className="grid gap-4 sm:grid-cols-3">
-          <Photo src={olive} />
+          <Photo />
           <div className="relative">
-            <Photo src={oldcity} />
+            <Photo />
             <Link
               to="/explore"
               className="absolute inset-x-0 top-1/2 mx-auto w-fit -translate-y-1/2 rounded-full bg-background/95 px-6 py-3 text-sm font-bold text-primary shadow-[var(--shadow-soft)]"
@@ -144,7 +135,7 @@ function AboutPage() {
               {c.startExplore}
             </Link>
           </div>
-          <Photo src={oil} />
+          <Photo />
         </div>
         <div className="mt-8 flex flex-wrap justify-center gap-4">
           <Button variant="outline" size="lg" className="rounded-full px-10" asChild>
