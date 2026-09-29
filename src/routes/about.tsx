@@ -184,7 +184,7 @@ function AboutPage() {
       <section className="mx-auto max-w-6xl px-4 pt-16">
         <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
           {c.features.map(([title, desc], i) => {
-            const Icon = featureIcons[i];
+            const Icon = featureIcons[i]!;
             return (
               <div key={title} className="rounded-3xl bg-card p-6 shadow-[var(--shadow-card)]">
                 <span className="grid h-12 w-12 place-items-center rounded-2xl bg-secondary text-primary">
@@ -203,7 +203,7 @@ function AboutPage() {
         <div className="mx-auto flex max-w-6xl flex-col items-center gap-8 px-4 py-12 lg:flex-row lg:justify-between">
           <div className="grid w-full gap-8 sm:grid-cols-3 lg:w-auto lg:gap-14">
             {c.stats.map((label, i) => {
-              const Icon = statIcons[i];
+              const Icon = statIcons[i]!;
               return (
                 <div key={label} className="flex items-center justify-center gap-3">
                   <Icon className="h-8 w-8 text-gold" />
