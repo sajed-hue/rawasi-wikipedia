@@ -112,13 +112,13 @@ function AboutPage() {
         <p className="mx-auto mt-5 max-w-3xl leading-loose text-muted-foreground">{c.heroText}</p>
         <div className="mt-10 grid gap-4 sm:grid-cols-3">
           <div className="relative">
-            <Photo src={pottery} />
+            <Photo />
             <span className="absolute bottom-3 left-3 grid h-11 w-11 place-items-center rounded-full bg-primary text-primary-foreground ring-2 ring-[color-mix(in_oklab,var(--gold)_60%,transparent)]">
               <MessageCircle className="h-5 w-5" />
             </span>
           </div>
-          <Photo src={coffee} />
-          <Photo src={tatreez} />
+          <Photo />
+          <Photo />
         </div>
       </section>
 
