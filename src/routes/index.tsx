@@ -39,7 +39,6 @@ const copy = {
       "منصة تشاركية لحفظ التراث الفلسطيني وتوثيقه، من الحكايات والتطريز إلى الأكلات والأمثال. شاركنا حكايتك وساعدنا في نقلها للأجيال القادمة.",
     searchPlaceholder: "ابحث في التراث...",
     searchButton: "بحث",
-    addContribution: "أضف مشاركتك",
     explore: "استكشف التراث",
     landLabel: "من الأرض... نروي الحكاية",
     storiesHeading: "حكايات من تراثنا",
@@ -81,7 +80,6 @@ const copy = {
       "A community platform to preserve and document Palestinian heritage — from stories and tatreez to food and proverbs. Share your story and help carry it to the next generation.",
     searchPlaceholder: "Search our heritage...",
     searchButton: "Search",
-    addContribution: "Add your contribution",
     explore: "Explore Heritage",
     landLabel: "From the land... we tell the story",
     storiesHeading: "Stories from our heritage",
@@ -173,13 +171,7 @@ function Index() {
               </Button>
             </form>
 
-            <div className="mt-6 flex flex-wrap justify-center gap-3 lg:justify-start">
-              <Link
-                to="/my-contributions"
-                className="rounded-full border border-primary px-6 py-2.5 text-sm font-semibold text-primary transition-colors hover:bg-secondary"
-              >
-                {c.addContribution}
-              </Link>
+            <div className="mt-6 flex justify-center lg:justify-start">
               <Link
                 to="/explore"
                 className="rounded-full bg-primary px-6 py-2.5 text-sm font-semibold text-primary-foreground shadow-[var(--shadow-card)] transition-opacity hover:opacity-90"
