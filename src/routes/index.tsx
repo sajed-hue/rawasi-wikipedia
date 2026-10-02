@@ -173,13 +173,7 @@ function Index() {
               </Button>
             </form>
 
-            <div className="mt-6 flex flex-wrap justify-center gap-3 lg:justify-start">
-              <Link
-                to="/my-contributions"
-                className="rounded-full border border-primary px-6 py-2.5 text-sm font-semibold text-primary transition-colors hover:bg-secondary"
-              >
-                {c.addContribution}
-              </Link>
+            <div className="mt-6 flex justify-center lg:justify-start">
               <Link
                 to="/explore"
                 className="rounded-full bg-primary px-6 py-2.5 text-sm font-semibold text-primary-foreground shadow-[var(--shadow-card)] transition-opacity hover:opacity-90"
