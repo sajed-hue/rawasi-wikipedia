@@ -53,7 +53,7 @@ export type ArticleSort = "newest" | "oldest" | "title";
 
 export interface GetArticlesParams {
   search?: string;
-  categoryId?: string | string[];
+  categoryId?: string | string[] | undefined;
   sort?: ArticleSort;
   page?: number;
   pageSize?: number;
