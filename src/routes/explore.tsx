@@ -35,7 +35,7 @@ type Filter = { type: "category"; id: string } | { type: "group"; id: CategoryGr
 
 export const Route = createFileRoute("/explore")({
   validateSearch: (s: Record<string, unknown>): { category?: string } =>
-    typeof s.category === "string" ? { category: s.category } : {},
+    typeof s["category"] === "string" ? { category: s["category"] } : {},
   head: () => ({
     meta: [
       { title: "استكشف التراث الفلسطيني | رواسي" },
