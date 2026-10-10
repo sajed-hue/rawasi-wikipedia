@@ -14,3 +14,6 @@
 - Do NOT modify: `src/components/Header.tsx`, `src/components/Footer.tsx`, `src/index.css`, `tailwind.config.ts`.
 - These files are finalized. Only touch files needed for the current page.
 - For `/login` and `/signup`, only create the new files those pages need. Do not modify `Header.tsx`, `Footer.tsx`, or the design tokens/CSS; reuse them as they are.
+
+## Contributions page
+- Keep the contributions preview data and filtering local to its route, with page-scoped status tokens, until real account-backed submissions are requested; this preserves the existing mock-only site without implying secure authentication or persistence.
