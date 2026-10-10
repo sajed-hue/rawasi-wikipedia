@@ -1,0 +1,14 @@
+.contributions-page {
+  --contribution-success: oklch(0.43 0.1 145);
+  --contribution-success-surface: oklch(0.94 0.035 145);
+  --contribution-pending: oklch(0.5 0.13 55);
+  --contribution-pending-surface: oklch(0.95 0.04 70);
+}
+.contribution-published {
+  color: var(--contribution-success);
+  background: var(--contribution-success-surface);
+}
+.contribution-pending {
+  color: var(--contribution-pending);
+  background: var(--contribution-pending-surface);
+}
