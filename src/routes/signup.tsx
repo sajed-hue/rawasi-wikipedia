@@ -1,5 +1,6 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
-import { useState, type FormEvent } from "react";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { useState, type SyntheticEvent } from "react";
+import { useMockAuth } from "@/lib/mock-auth";
 
 import logoAsset from "@/assets/logo.png.asset.json";
 import signInPhoto from "@/assets/sing_in_photo.png.asset.json";
@@ -63,10 +64,23 @@ function SignupPage() {
   const text = copy[lang];
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [showTermsError, setShowTermsError] = useState(false);
+  const { signIn } = useMockAuth();
+  const navigate = useNavigate();
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  /**
+   * handleSubmit: runs when the signup form is submitted (mock signup).
+   * 1. preventDefault() stops the page from reloading.
+   * 2. If the terms checkbox is not ticked, shows the terms error and stops.
+   * 3. Otherwise signs the new user in as a normal "user" and goes home.
+   *    Real account creation will be handled by Firebase later.
+   */
+  function handleSubmit(event: SyntheticEvent<HTMLFormElement>) {
     event.preventDefault();
     setShowTermsError(!termsAccepted);
+    if (!termsAccepted) return;
+        const name = String(new FormData(event.currentTarget).get("name") ?? "");
+    signIn("user", name);
+    navigate({ to: "/" });
   }
 
   return (
