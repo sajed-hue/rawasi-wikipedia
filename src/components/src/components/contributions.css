@@ -1,0 +1,24 @@
+.contribution-published {
+  background-color: var(--primary);
+  color: var(--primary-foreground);
+}
+
+.contribution-pending {
+  background-color: oklch(0.93 0.05 80);
+  color: oklch(0.52 0.13 68);
+}
+
+.contributions-page .h-14.contribution-published {
+  background-color: var(--secondary);
+  color: var(--primary);
+}
+
+.contributions-page .h-14.contribution-pending {
+  background-color: oklch(0.93 0.05 80);
+  color: oklch(0.52 0.13 68);
+}
+
+.contribution-rejected {
+  background-color: oklch(0.93 0.04 25);
+  color: oklch(0.5 0.17 25);
+}

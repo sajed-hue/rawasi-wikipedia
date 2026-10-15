@@ -2,8 +2,8 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState, type SyntheticEvent } from "react";
 import { useMockAuth } from "@/lib/mock-auth";
 
-import logoAsset from "@/assets/logo.png.asset.json";
-import signInPhoto from "@/assets/sing_in_photo.png.asset.json";
+import logo from "@/assets/logo.png";
+import sign_in_photo from "@/assets/sign_in_photo.png";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
@@ -78,8 +78,8 @@ function SignupPage() {
     event.preventDefault();
     setShowTermsError(!termsAccepted);
     if (!termsAccepted) return;
-        const name = String(new FormData(event.currentTarget).get("name") ?? "");
-    signIn("user", name);
+            const form = new FormData(event.currentTarget);
+    signIn("user", String(form.get("name") ?? ""), String(form.get("email") ?? ""));
     navigate({ to: "/" });
   }
 
@@ -95,7 +95,7 @@ function SignupPage() {
         >
           <div className="mx-auto w-full max-w-md">
             <div className="mb-6 text-center">
-              <img src={logoAsset.url} alt="Rawasi" className="mx-auto h-14 w-auto sm:h-16" />
+              <img src={logo} alt="Rawasi" className="mx-auto h-14 w-auto sm:h-16" />
               <h1 className="mt-4 text-2xl font-bold text-foreground sm:text-3xl">
                 {text.heading}
               </h1>
@@ -187,7 +187,7 @@ function SignupPage() {
             <span className="absolute right-0 top-1/2 h-3 w-3 -translate-y-1/2 rotate-45 border border-gold bg-background" />
             <div className="h-[620px] overflow-hidden rounded-t-[13rem] rounded-b-3xl border border-gold bg-muted p-1.5 shadow-[var(--shadow-soft)]">
               <img
-                src={signInPhoto.url}
+                src={sign_in_photo}
                 alt={text.imageAlt}
                 className="h-full w-full rounded-t-[12.5rem] rounded-b-[1.15rem] object-cover"
               />

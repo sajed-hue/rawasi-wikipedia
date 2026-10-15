@@ -1,26 +1,51 @@
-# Rawasi Wikipedia
+# رواسي | Rawasi
 
-Implement exactly the screenshot and nothing else
+A bilingual (Arabic / English) platform for Palestinian heritage: a community-written
+wiki where anyone can read, and registered users can contribute articles that an
+admin reviews before they go live.
 
-This project was built with [Lovable](https://lovable.dev).
+## Features
+- Explore heritage articles by category, with search, sorting and pagination
+- Guests can browse; accounts can submit, edit and delete their own articles
+- Admin review queue: approve, or reject with a written reason
+- Saved articles, and an account card with an editable display name
+- Arabic (RTL) and English (LTR) with a one-click language switch
 
-**Live app**: https://rawasi-wikipedia.lovable.app
+## Tech
+React 19 · TypeScript · TanStack Start / Router · Tailwind CSS v4 · shadcn/ui (Radix)
 
-## Build with Lovable
-
-Continue developing this project in the [Lovable editor](https://lovable.dev/projects/a2c9247a-b374-45b9-946f-aaaac2e5129d).
-
-- **Ship faster**: describe what you want to build and Lovable handles the code.
-- **Stay in sync**: every change made in Lovable is committed straight to this repository.
-- **Full ownership**: this code is yours. Push to `main` on GitHub and your changes sync back into Lovable, ready for your next prompt.
-
-## Development
-
-Prefer working locally? You need Node.js and npm — [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating).
-
+## Run it
 ```sh
-git clone <this-repository-url>
-cd <repository-name>
-npm i
-npm run dev
+npm install
+npm run dev      # http://localhost:8080
 ```
+
+## Folders
+- `src/routes`: one file per page (file-based routing; never edit `routeTree.gen.ts`)
+- `src/components`: header, footer and shared pieces
+- `src/data`: the mock "database" and its functions (see below)
+- `src/lib`: language/RTL support and the mock login
+
+## Mock data vs the backend
+The screens only call the functions in `src/data`, so connecting the backend means
+rewriting these functions and nothing else.
+
+| Function | Backend endpoint |
+|---|---|
+| `getArticles` | `GET /api/heritage-posts` |
+| `getArticleById` | `GET /api/heritage-posts/{id}` |
+| `createArticle` / `updateArticle` | `POST` / `PUT /api/heritage-posts` |
+| `submitArticle` | `POST /api/heritage-posts/{id}/submit` |
+| `deleteArticle` | `DELETE /api/heritage-posts/{id}` |
+| `getMyArticles` | `GET /api/users/me/heritage-posts` |
+| `getPendingArticles` | `GET /api/admin/moderation/pending` |
+| `approveArticle` / `rejectArticle` | `POST /api/admin/moderation/{id}/approve` / `reject` |
+| `src/lib/mock-auth.tsx` | Firebase sign-in + `GET` / `PUT /api/users/me` |
+| Saved articles | Front end only (no backend feature) |
+
+Post status numbers follow the backend: 0 Draft, 1 Pending review, 2 Approved, 3 Rejected, 4 Archived.
+
+## Known limitations
+- The login is a stand-in until Firebase is connected (an email containing "admin" logs in as an admin; remove before release).
+- Article photos wait for the backend media endpoints.
+- Article text is Arabic-only; category names have English versions on the front end.

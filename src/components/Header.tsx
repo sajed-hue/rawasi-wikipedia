@@ -1,36 +1,48 @@
 import { Link } from "@tanstack/react-router";
-import { Globe, Menu, User, X } from "lucide-react";
+import { Globe, LogOut, Menu, User, X } from "lucide-react";
 import { useState } from "react";
 
-import logoAsset from "@/assets/logo.png.asset.json";
+import logo from "@/assets/logo.png";
+
 import { useLanguage, type TKey } from "@/lib/i18n";
 import { useMockAuth } from "@/lib/mock-auth";
 
 const navItems: { to: string; key: TKey }[] = [
   { to: "/", key: "nav.home" },
   { to: "/about", key: "nav.about" },
-  { to: "/categories", key: "nav.categories" },
   { to: "/explore", key: "nav.explore" },
   { to: "/my-contributions", key: "nav.contributions" },
+  { to: "/admin", key: "nav.admin" },
 ];
 
 export function Header() {
-  const { t, toggleLang } = useLanguage();
-  const { isLoggedIn, signOut } = useMockAuth();
+  const { t, toggleLang, lang } = useLanguage();
+  const { isLoggedIn, isAdmin, name, signOut } = useMockAuth(); // current user state
+
+  // Hide the links a visitor can't use: My Contributions needs a login, Admin needs the admin role.
+  const visibleNav = navItems.filter((item) => {
+    if (item.to === "/my-contributions") return isLoggedIn;
+    if (item.to === "/admin") return isAdmin;
+    return true;
+  });
   const [open, setOpen] = useState(false);
+
+  const signOutLabel = lang === "ar" ? "تسجيل الخروج" : "Sign out";
 
   const linkClass =
     "rounded-full px-3 py-2 text-sm font-medium text-foreground/80 transition-colors hover:bg-secondary hover:text-primary";
 
   return (
     <header className="sticky top-0 z-40 border-b border-[color-mix(in_oklab,var(--gold)_45%,transparent)] bg-background/90 backdrop-blur">
+      {/* Three parts in order: logo, nav, controls. The page direction decides the side:
+          Arabic (RTL) puts the logo on the right, English (LTR) puts it on the left. */}
       <div className="mx-auto grid max-w-7xl grid-cols-[auto_minmax(0,1fr)] items-center gap-3 px-4 py-3 lg:flex lg:justify-between">
-        <Link to="/" className="order-2 flex min-w-0 shrink-0 items-center gap-2 justify-self-end">
-          <img src={logoAsset.url} alt="Rawasi" className="h-10 w-auto sm:h-12" />
+        <Link to="/" className="order-0 flex min-w-0 shrink-0 items-center gap-2">
+          <img src={logo} alt="Rawasi" className="h-10 w-auto sm:h-12" />
         </Link>
 
         <nav className="order-1 hidden items-center gap-1 lg:flex">
-          {navItems.map((item) => (
+          {visibleNav.map((item) => (
             <Link
               key={item.to}
               to={item.to}
@@ -43,7 +55,7 @@ export function Header() {
           ))}
         </nav>
 
-        <div className="order-0 flex min-w-0 items-center gap-2">
+        <div className="order-2 flex min-w-0 items-center gap-2 justify-self-end">
           <button
             onClick={toggleLang}
             className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-[color-mix(in_oklab,var(--gold)_60%,transparent)] px-3 py-1.5 text-sm font-semibold text-primary transition-colors hover:bg-secondary"
@@ -53,15 +65,22 @@ export function Header() {
           </button>
 
           {isLoggedIn ? (
-            <button
-              onClick={signOut}
-              className="flex min-w-0 items-center gap-2 rounded-full bg-card px-2 py-1.5 text-sm font-medium"
-            >
-              <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-primary text-primary-foreground">
-                <User className="h-4 w-4" />
+            <div className="flex min-w-0 items-center gap-2">
+              <span className="flex min-w-0 items-center gap-2 rounded-full bg-card px-2 py-1.5 text-sm font-medium">
+                <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-primary text-primary-foreground">
+                  <User className="h-4 w-4" />
+                </span>
+                <span className="truncate">{name || t("auth.user")}</span>
               </span>
-              <span className="truncate">{t("auth.user")}</span>
-            </button>
+              <button
+                onClick={signOut}
+                aria-label={signOutLabel}
+                title={signOutLabel}
+                className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-primary transition-colors hover:bg-secondary"
+              >
+                <LogOut className="h-4 w-4" />
+              </button>
+            </div>
           ) : (
             <div className="hidden items-center gap-2 sm:flex">
               <Link
@@ -82,7 +101,7 @@ export function Header() {
           <button
             aria-label={t("menu.open")}
             onClick={() => setOpen((v) => !v)}
-            className="ms-auto grid h-9 w-9 shrink-0 place-items-center rounded-full bg-card text-primary lg:hidden"
+            className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-card text-primary lg:hidden"
           >
             {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
           </button>
@@ -91,7 +110,7 @@ export function Header() {
 
       {open && (
         <nav className="flex flex-col gap-1 border-t border-border bg-card px-4 py-3 lg:hidden">
-          {navItems.map((item) => (
+          {visibleNav.map((item) => (
             <Link
               key={item.to}
               to={item.to}

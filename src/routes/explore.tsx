@@ -1,4 +1,6 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { getSavedIds, toggleSaved } from "@/data/saved";
+import { useMockAuth } from "@/lib/mock-auth";
 import {
   Bookmark,
   ChevronLeft,
@@ -26,7 +28,10 @@ import { getArticles, type Article, type ArticleSort, type PagedResult } from "@
 import {
   CATEGORY_GROUP_LABELS,
   categories,
+  categoryLabel,
+  groupLabel,
   categoriesByGroup,
+  categoryNameById,
   type CategoryGroup,
 } from "@/data/categories";
 import { useLanguage } from "@/lib/i18n";
@@ -34,8 +39,14 @@ import { useLanguage } from "@/lib/i18n";
 type Filter = { type: "category"; id: string } | { type: "group"; id: CategoryGroup } | null;
 
 export const Route = createFileRoute("/explore")({
-  validateSearch: (s: Record<string, unknown>): { category?: string } =>
-    typeof s["category"] === "string" ? { category: s["category"] } : {},
+  validateSearch: (s: Record<string, unknown>): { category?: string; q?: string } => {
+    const out: { category?: string; q?: string } = {};
+    const category = s["category"];
+    const q = s["q"];
+    if (typeof category === "string") out.category = category;
+    if (typeof q === "string" && q.trim() !== "") out.q = q;
+    return out;
+  },
   head: () => ({
     meta: [
       { title: "استكشف التراث الفلسطيني | رواسي" },
@@ -85,17 +96,33 @@ const groupIcon = { material: Landmark, immaterial: Sparkles } as const;
 function ExplorePage() {
   const { lang } = useLanguage();
   const t = copy[lang];
-  const { category } = Route.useSearch();
+  const { category, q } = Route.useSearch();
 
-  const [query, setQuery] = useState("");
-  const [search, setSearch] = useState("");
+  const [query, setQuery] = useState(q ?? "");
+  const [search, setSearch] = useState(q ?? "");
   const [filter, setFilter] = useState<Filter>(() =>
     category && categories.some((c) => c.id === category) ? { type: "category", id: category } : null,
   );
   const [sort, setSort] = useState<ArticleSort>("newest");
   const [page, setPage] = useState(1);
   const [result, setResult] = useState<PagedResult<Article> | null>(null);
-  const [saved, setSaved] = useState<Set<string>>(new Set());
+  
+  const [saved, setSaved] = useState<string[]>([]);
+  const { isLoggedIn } = useMockAuth();
+  const navigate = useNavigate();
+
+  // Load the saved article ids from the browser when the page opens.
+  useEffect(() => setSaved(getSavedIds()), []);
+
+  /** handleSave: saves or unsaves an article. Guests are sent to log in first. */
+  function handleSave(id: string) {
+    if (!isLoggedIn) {
+      navigate({ to: "/login" });
+      return;
+    }
+    setSaved(toggleSaved(id));
+  }
+
 
   useEffect(() => {
     if (category && categories.some((c) => c.id === category)) setFilter({ type: "category", id: category });
@@ -129,13 +156,13 @@ function ExplorePage() {
         ? "border-primary bg-primary text-primary-foreground"
         : "border-border bg-background text-foreground hover:border-primary hover:text-primary"
     }`;
-  const filterLabel =
+    const filterLabel =
     filter?.type === "category"
-      ? categories.find((c) => c.id === filter.id)?.name
+      ? categoryNameById(filter.id, lang)
       : filter
-        ? CATEGORY_GROUP_LABELS[filter.id]
+        ? groupLabel(filter.id, lang)
         : null;
-  const catName = (id: string) => categories.find((c) => c.id === id)?.name ?? "";
+const catName = (id: string) => categoryNameById(id, lang);
   const PrevIcon = lang === "ar" ? ChevronRight : ChevronLeft;
   const NextIcon = lang === "ar" ? ChevronLeft : ChevronRight;
   const FirstIcon = lang === "ar" ? ChevronsRight : ChevronsLeft;
@@ -180,7 +207,7 @@ function ExplorePage() {
                   }`}
                 >
                   <Icon className="h-5 w-5" />
-                  {CATEGORY_GROUP_LABELS[g]}
+                  {groupLabel(g, lang)}
                 </button>
                 <div className="mt-4 flex flex-wrap gap-2">
                   {categoriesByGroup(g).map((c) => (
@@ -192,7 +219,7 @@ function ExplorePage() {
                       className={chip(isActive({ type: "category", id: c.id }))}
                       onClick={() => setFilter({ type: "category", id: c.id })}
                     >
-                      {c.name}
+                      {categoryLabel(c, lang)}
                     </button>
                   ))}
                 </div>
@@ -234,8 +261,13 @@ function ExplorePage() {
         <div className="mt-6 grid gap-6 md:grid-cols-2 lg:grid-cols-3">
           {result?.items.map((art) => (
             <article key={art.id} className="flex flex-col overflow-hidden rounded-3xl border border-border bg-card shadow-[var(--shadow-card)]">
-              <div className="m-3 flex aspect-[4/3] items-center justify-center rounded-2xl border border-[color-mix(in_oklab,var(--gold)_45%,transparent)] bg-background text-muted-foreground/60">
-                <ImageIcon className="h-10 w-10" />
+              
+                <div className="m-3 flex aspect-[4/3] items-center justify-center overflow-hidden rounded-2xl border border-[color-mix(in_oklab,var(--gold)_45%,transparent)] bg-background text-muted-foreground/60">
+                {art.imageUrl ? (
+                  <img src={art.imageUrl} alt={art.title} loading="lazy" className="h-full w-full object-cover" />
+                ) : (
+                  <ImageIcon className="h-10 w-10" />
+                )}
               </div>
               <div className="flex flex-1 flex-col px-5 pb-5">
                 <div className="flex items-center justify-between gap-2">
@@ -243,25 +275,21 @@ function ExplorePage() {
                     <Gem className="h-3 w-3 text-tatreez" />
                     {catName(art.categoryId)}
                   </span>
-                  <button
+                   
+                    <button
                     type="button"
                     aria-label={t.save}
-                    aria-pressed={saved.has(art.id)}
-                    onClick={() =>
-                      setSaved((s) => {
-                        const n = new Set(s);
-                        n.has(art.id) ? n.delete(art.id) : n.add(art.id);
-                        return n;
-                      })
-                    }
+                    aria-pressed={saved.includes(art.id)}
+                    onClick={() => handleSave(art.id)}
                     className="text-primary"
                   >
-                    <Bookmark className={`h-5 w-5 ${saved.has(art.id) ? "fill-current" : ""}`} />
+                    <Bookmark className={`h-5 w-5 ${saved.includes(art.id) ? "fill-current" : ""}`} />
                   </button>
+
                 </div>
                 <h2 className="mt-3 font-display text-lg text-foreground">{art.title}</h2>
                 <p className="mt-2 line-clamp-2 text-sm text-muted-foreground">{art.summary}</p>
-                <Link to="/explore" className="mt-auto pt-4 text-sm font-semibold text-tatreez hover:underline">
+                <Link to="/article/$id" params={{ id: art.id }} className="mt-auto pt-4 text-sm font-semibold text-tatreez hover:underline">
                   {t.readMore}
                 </Link>
               </div>

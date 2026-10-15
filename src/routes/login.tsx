@@ -1,7 +1,9 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { useMockAuth } from "@/lib/mock-auth";
+import type { SyntheticEvent } from "react";
 
-import logoAsset from "@/assets/logo.png.asset.json";
-import signInPhoto from "@/assets/sing_in_photo.png.asset.json";
+import logo from "@/assets/logo.png";
+import sign_in_photo from "@/assets/sign_in_photo.png";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
@@ -58,6 +60,25 @@ const copy = {
 } as const;
 
 function LoginPage() {
+    const { signIn } = useMockAuth();
+  const navigate = useNavigate();
+
+   /**
+   * handleLogin: runs when the login form is submitted (mock login).
+   * 1. preventDefault() stops the browser from reloading the page.
+   * 2. Reads the email the user typed into the form.
+   * 3. Temporary rule: an email containing "admin" logs in as an admin,
+   *    anything else logs in as a normal user. Firebase replaces this later.
+   * 4. Sends the user to the home page.
+   */
+  function handleLogin(event: SyntheticEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const email = String(new FormData(event.currentTarget).get("email") ?? "");
+    const isAdminEmail = email.toLowerCase().includes("admin");
+       signIn(isAdminEmail ? "admin" : "user", email.split("@")[0], email);
+    navigate({ to: "/" });
+  }
+  
   const { lang, dir } = useLanguage();
   const text = copy[lang];
 
@@ -73,14 +94,14 @@ function LoginPage() {
         >
           <div className="mx-auto w-full max-w-md">
             <div className="mb-7 text-center">
-              <img src={logoAsset.url} alt="Rawasi" className="mx-auto h-16 w-auto sm:h-20" />
+              <img src={logo} alt="Rawasi" className="mx-auto h-16 w-auto sm:h-20" />
               <h1 className="mt-5 text-2xl font-bold text-foreground sm:text-3xl">
                 {text.heading}
               </h1>
               <p className="mt-2 text-muted-foreground">{text.subheading}</p>
             </div>
 
-            <form className="space-y-5" onSubmit={(event) => event.preventDefault()}>
+            <form className="space-y-5" onSubmit={handleLogin}>
               <div className="space-y-2">
                 <Label htmlFor="login-email">{text.email}</Label>
                 <Input
@@ -138,8 +159,8 @@ function LoginPage() {
               <span className="h-px flex-1 bg-border" />
             </div>
 
-            <Button type="button" variant="outline" size="lg" className="h-11 w-full rounded-full">
-              {text.guest}
+              <Button asChild variant="outline" size="lg" className="h-11 w-full rounded-full">
+              <Link to="/">{text.guest}</Link>
             </Button>
           </div>
         </div>
@@ -150,7 +171,7 @@ function LoginPage() {
             <span className="absolute right-0 top-1/2 h-3 w-3 -translate-y-1/2 rotate-45 border border-gold bg-background" />
             <div className="h-[620px] overflow-hidden rounded-t-[13rem] rounded-b-3xl border border-gold bg-muted p-1.5 shadow-[var(--shadow-soft)]">
               <img
-                src={signInPhoto.url}
+                src={sign_in_photo}
                 alt={text.imageAlt}
                 className="h-full w-full rounded-t-[12.5rem] rounded-b-[1.15rem] object-cover"
               />

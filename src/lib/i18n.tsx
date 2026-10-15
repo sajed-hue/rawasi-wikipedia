@@ -1,3 +1,8 @@
+/* This file contains the i18n (internationalization) context for the app.
+  It handles Arabic/English. It stores the translations, remembers the current language, 
+  and flips the page direction between right-to-left and left-to-right.
+*/
+
 import {
   createContext,
   useCallback,
@@ -17,6 +22,7 @@ const dictionary = {
     "nav.categories": "أقسام التراث",
     "nav.explore": "استكشف التراث",
     "nav.contributions": "مشاركتك",
+    "nav.admin": "لوحة المراجعة",
     "auth.login": "تسجيل الدخول",
     "auth.signup": "إنشاء حساب",
     "auth.user": "ثراء نعيم",
@@ -58,6 +64,7 @@ const dictionary = {
     "nav.categories": "Categories",
     "nav.explore": "Explore Heritage",
     "nav.contributions": "My Contributions",
+    "nav.admin": "Review Panel",
     "auth.login": "Login",
     "auth.signup": "Sign up",
     "auth.user": "Tharaa Naeem",
