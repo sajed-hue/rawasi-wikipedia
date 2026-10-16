@@ -46,6 +46,6 @@ rewriting these functions and nothing else.
 Post status numbers follow the backend: 0 Draft, 1 Pending review, 2 Approved, 3 Rejected, 4 Archived.
 
 ## Known limitations
-- The login is a stand-in until Firebase is connected (an email containing "admin" logs in as an admin; remove before release).
+- The login is a stand-in until Firebase is connected. While running `npm run dev`, an email starting with `admin@` logs in as an admin (a dev-only shortcut in `login.tsx`, switched off in production builds; delete it once the real login works).
 - Article photos wait for the backend media endpoints.
 - Article text is Arabic-only; category names have English versions on the front end.

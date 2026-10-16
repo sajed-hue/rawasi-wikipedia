@@ -59,23 +59,40 @@ const copy = {
   },
 } as const;
 
+
+// DEV ONLY: while developing without the backend, an email that starts with
+// "admin@" logs in as an admin so the admin screens can be tested.
+// Switch 1: set ENABLE_DEV_ADMIN_SHORTCUT to false to turn it off by hand.
+// Switch 2: import.meta.env.DEV is false in a production build (npm run build),
+//           so the shortcut disappears there automatically.
+// Delete this whole block once the real login is connected.
+const ENABLE_DEV_ADMIN_SHORTCUT = true;
+const DEV_ADMIN_SHORTCUT = import.meta.env.DEV && ENABLE_DEV_ADMIN_SHORTCUT;
+
 function LoginPage() {
     const { signIn } = useMockAuth();
   const navigate = useNavigate();
 
-   /**
-   * handleLogin: runs when the login form is submitted (mock login).
-   * 1. preventDefault() stops the browser from reloading the page.
-   * 2. Reads the email the user typed into the form.
-   * 3. Temporary rule: an email containing "admin" logs in as an admin,
-   *    anything else logs in as a normal user. Firebase replaces this later.
-   * 4. Sends the user to the home page.
+  /**
+   * handleLogin: runs when the login form is submitted (MOCK login).
+   *
+   * BACKEND INTEGRATION (for whoever connects the API):
+   *   1. Sign in with Firebase using the email and password from this form.
+   *   2. Call GET /api/users/me with the Firebase token.
+   *   3. Call signIn(profile.role === "Admin" ? "admin" : "user",
+   *                  profile.displayName, profile.email);
+   *   4. Show an error message if Firebase rejects the credentials.
+   *   Then delete DEV_ADMIN_SHORTCUT above. Roles are assigned by the backend,
+   *   never by the frontend. UI role checks only hide or show buttons.
+   *
+   * Mock behaviour: logs in as a normal user and goes to the home page.
+   * With the dev shortcut on, an email starting with "admin@" becomes an admin.
    */
   function handleLogin(event: SyntheticEvent<HTMLFormElement>) {
     event.preventDefault();
     const email = String(new FormData(event.currentTarget).get("email") ?? "");
-    const isAdminEmail = email.toLowerCase().includes("admin");
-       signIn(isAdminEmail ? "admin" : "user", email.split("@")[0], email);
+    const isDevAdmin = DEV_ADMIN_SHORTCUT && email.toLowerCase().startsWith("admin@");
+    signIn(isDevAdmin ? "admin" : "user", email.split("@")[0], email);
     navigate({ to: "/" });
   }
   

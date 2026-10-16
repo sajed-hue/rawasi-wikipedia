@@ -67,6 +67,15 @@ function SignupPage() {
   const { signIn } = useMockAuth();
   const navigate = useNavigate();
 
+
+    /**
+   * BACKEND INTEGRATION: replace the mock signIn below with
+   *   1. Firebase create-account with the email and password from this form,
+   *   2. GET /api/users/me with the new token (the backend creates the profile
+   *      as a normal "User"; there is no register endpoint),
+   *   3. signIn("user", profile.displayName, profile.email).
+   * Signup can never create admins.
+   */
   /**
    * handleSubmit: runs when the signup form is submitted (mock signup).
    * 1. preventDefault() stops the page from reloading.
