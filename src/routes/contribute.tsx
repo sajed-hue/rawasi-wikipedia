@@ -18,6 +18,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { categoryLabel } from "@/data/categories";
 import { IMAGE_RULES, deletePostMedia, pickPrimaryMedia, uploadPostMedia, validateImageFile } from "@/lib/api/media";
 import { apiErrorMessage, fieldError } from "@/lib/api/messages";
+import { shrinkImage } from "@/lib/image-resize";
 import { createDraft, createRevision, submitPost, updateDraft } from "@/lib/api/posts";
 import { isApiError } from "@/lib/api/problem";
 import { useCategoryIndex, useInvalidatePosts, usePostMedia, usePublicPost } from "@/lib/api/queries";
@@ -41,6 +42,8 @@ export const Route = createFileRoute("/contribute")({
 
 // Backend validation limits (FluentValidation in the API).
 const LIMITS = { title: 200, summary: 500, content: 50000, changeDescription: 1000 } as const;
+/** Largest photo accepted before in-browser shrinking (the upload itself must be ≤ 5 MB). */
+const MAX_SOURCE_IMAGE_BYTES = 20 * 1024 * 1024;
 
 const copy = {
   ar: {
@@ -61,11 +64,12 @@ const copy = {
     reviseImageNote: "الصور لا تتغيّر عبر اقتراح التعديل.",
     image: "صورة المقال (اختيارية)",
     imageChoose: "اضغط لاختيار صورة",
-    imageHint: "JPG أو PNG أو WebP، حتى 5 ميغابايت",
+    imageHint: "JPG أو PNG أو WebP، حتى 20 ميغابايت (تُصغَّر الصور الكبيرة تلقائياً)",
+    preparingImage: "جارٍ تجهيز الصورة...",
     imageNote: "ستظهر هذه الصورة على بطاقة المقال وفي صفحته.",
     imageRemove: "إزالة الصورة",
     imageTypeError: "الرجاء اختيار صورة بصيغة JPG أو PNG أو WebP",
-    imageSizeError: "حجم الصورة أكبر من 5 ميغابايت",
+    imageSizeError: "الصورة كبيرة جداً. اختر صورة أصغر من 20 ميغابايت.",
     submit: "إرسال للمراجعة",
     resubmit: "حفظ وإعادة الإرسال للمراجعة",
     sendRevision: "إرسال اقتراح التعديل",
@@ -102,11 +106,12 @@ const copy = {
     reviseImageNote: "Images can't be changed through a proposed edit.",
     image: "Article image (optional)",
     imageChoose: "Click to choose an image",
-    imageHint: "JPG, PNG or WebP, up to 5 MB",
+    imageHint: "JPG, PNG or WebP, up to 20 MB (large photos are shrunk automatically)",
+    preparingImage: "Preparing image...",
     imageNote: "This image appears on the article's card and on its page.",
     imageRemove: "Remove image",
     imageTypeError: "Please choose a JPG, PNG or WebP image",
-    imageSizeError: "The image is larger than 5 MB",
+    imageSizeError: "That image is too large. Choose one under 20 MB.",
     submit: "Submit for review",
     resubmit: "Save and resubmit for review",
     sendRevision: "Send proposed edit",
@@ -148,6 +153,7 @@ function ContributePage() {
   const [preview, setPreview] = useState<string | null>(null);
   const [removeExisting, setRemoveExisting] = useState(false);
   const [imageError, setImageError] = useState("");
+  const [preparingImage, setPreparingImage] = useState(false);
   const [showCategoryError, setShowCategoryError] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<unknown>(null);
@@ -184,17 +190,35 @@ function ContributePage() {
     return () => URL.revokeObjectURL(url);
   }, [imageFile]);
 
-  /** handleImageChange: pre-checks type and size (UX only — the backend re-validates). */
-  function handleImageChange(event: ChangeEvent<HTMLInputElement>) {
+  /**
+   * handleImageChange: checks the type, shrinks large photos in the browser, then
+   * checks the final size (UX only — the backend re-validates everything).
+   * Accepting up to 20 MB here lets phone photos through; they end up well under 5 MB.
+   */
+  async function handleImageChange(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
     if (!file) return;
-    const problem = validateImageFile(file);
-    if (problem) {
-      setImageError(problem === "type" ? t.imageTypeError : t.imageSizeError);
+    if (!(IMAGE_RULES.types as readonly string[]).includes(file.type)) {
+      setImageError(t.imageTypeError);
+      return;
+    }
+    if (file.size > MAX_SOURCE_IMAGE_BYTES) {
+      setImageError(t.imageSizeError);
       return;
     }
     setImageError("");
-    setImageFile(file);
+    setPreparingImage(true);
+    try {
+      const prepared = await shrinkImage(file);
+      const problem = validateImageFile(prepared);
+      if (problem) {
+        setImageError(problem === "type" ? t.imageTypeError : t.imageSizeError);
+        return;
+      }
+      setImageFile(prepared);
+    } finally {
+      setPreparingImage(false);
+    }
   }
 
   function fail(err: unknown, text?: string) {
@@ -467,10 +491,12 @@ function ContributePage() {
               id="article-image"
               type="file"
               accept={IMAGE_RULES.accept}
-              onChange={handleImageChange}
+              onChange={(e) => void handleImageChange(e)}
+              disabled={preparingImage}
               className="sr-only"
             />
             <p className="text-xs text-muted-foreground">{t.imageNote}</p>
+            {preparingImage && <p role="status" className="text-sm text-primary">{t.preparingImage}</p>}
             {imageError && <p className="text-sm text-destructive">{imageError}</p>}
           </div>
         )}
@@ -481,7 +507,7 @@ function ContributePage() {
           </p>
         )}
 
-        <Button type="submit" disabled={saving} className="h-11 w-full">
+        <Button type="submit" disabled={saving || preparingImage} className="h-11 w-full">
           {saving ? t.sending : submitLabel}
         </Button>
       </form>
