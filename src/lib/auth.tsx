@@ -34,13 +34,25 @@ import { isApiError } from "@/lib/api/problem";
 import type { UpdateCurrentUserRequest, UserProfileDto, UserRole } from "@/lib/api/types";
 import { getFirebaseAuth, isFirebaseConfigured } from "@/lib/firebase";
 
-export type AuthStatus = "loading" | "authenticated" | "unauthenticated";
+/**
+ * - loading: Firebase hasn't reported yet
+ * - authenticated: Firebase session + backend profile loaded
+ * - unauthenticated: signed out (or the backend rejected the account: 401/403)
+ * - error: signed in to Firebase, but the backend profile couldn't be loaded
+ *   (server/network error). NOT treated as logged in; retried automatically.
+ */
+export type AuthStatus = "loading" | "authenticated" | "unauthenticated" | "error";
+
+/** Backoff for retrying the profile load after a transient failure. */
+const PROFILE_RETRY_DELAYS_MS = [5_000, 15_000, 30_000];
 
 export interface AuthContextValue {
   status: AuthStatus;
   /** True once the initial Firebase auth state has resolved; gate redirects on this. */
   isReady: boolean;
   isAuthenticated: boolean;
+  /** Signed in to Firebase but the backend profile failed to load (see status "error"). */
+  profileError: boolean;
   firebaseUser: User | null;
   /** Backend profile, hydrated from GET /api/users/me after sign-in. */
   profile: UserProfileDto | null;
@@ -74,6 +86,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [firebaseUser, setFirebaseUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<UserProfileDto | null>(null);
   const firebaseUserRef = useRef<User | null>(null);
+  const statusRef = useRef<AuthStatus>("loading");
+  statusRef.current = status;
 
   // Give the API client a way to fetch the current token and to react to a hard 401.
   useEffect(() => {
@@ -102,8 +116,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         void getFirebaseAuth()?.signOut();
         return;
       }
-      // Transient/network error: keep the Firebase session but leave profile unhydrated.
-      setStatus("authenticated");
+      // Server/network error: keep the Firebase session, but do NOT report the user
+      // as logged in without a profile (guards and role checks would be wrong).
+      setProfile(null);
+      setStatus("error");
       throw error;
     }
   }, []);
@@ -116,19 +132,57 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setStatus("unauthenticated");
       return;
     }
+
+    let retryTimer: ReturnType<typeof setTimeout> | undefined;
+    let failedAttempts = 0;
+    const clearRetry = () => {
+      if (retryTimer) clearTimeout(retryTimer);
+      retryTimer = undefined;
+    };
+
+    // Load the profile; on a transient failure, retry with backoff while still signed in.
+    const attemptLoad = () => {
+      clearRetry();
+      void loadProfile()
+        .then(() => {
+          failedAttempts = 0;
+        })
+        .catch(() => {
+          const delay = PROFILE_RETRY_DELAYS_MS[failedAttempts];
+          failedAttempts += 1;
+          if (delay !== undefined && firebaseUserRef.current) {
+            retryTimer = setTimeout(attemptLoad, delay);
+          }
+        });
+    };
+
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       firebaseUserRef.current = user;
       setFirebaseUser(user);
+      failedAttempts = 0;
       if (user) {
-        void loadProfile().catch(() => {
-          // Error already reflected in state; swallow to avoid unhandled rejection.
-        });
+        attemptLoad();
       } else {
+        clearRetry();
         setProfile(null);
         setStatus("unauthenticated");
       }
     });
-    return unsubscribe;
+
+    // Coming back to the tab is a good moment to retry a failed profile load.
+    const onFocus = () => {
+      if (firebaseUserRef.current && statusRef.current === "error") {
+        failedAttempts = 0;
+        attemptLoad();
+      }
+    };
+    window.addEventListener("focus", onFocus);
+
+    return () => {
+      unsubscribe();
+      clearRetry();
+      window.removeEventListener("focus", onFocus);
+    };
   }, [loadProfile]);
 
   const signInWithEmail = useCallback(async (email: string, password: string) => {
@@ -173,6 +227,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       status,
       isReady: status !== "loading",
       isAuthenticated: status === "authenticated",
+      profileError: status === "error",
       firebaseUser,
       profile,
       role: profile?.role ?? null,

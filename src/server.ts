@@ -2,6 +2,12 @@ import "./lib/error-capture";
 
 import { consumeLastCapturedError } from "./lib/error-capture";
 import { renderErrorPage } from "./lib/error-page";
+import { originOf, withSecurityHeaders } from "./lib/security-headers";
+
+const HEADER_OPTIONS = {
+  isProd: import.meta.env.PROD,
+  apiOrigin: originOf(import.meta.env.VITE_API_BASE_URL),
+};
 
 type ServerEntry = {
   fetch: (request: Request, env: unknown, ctx: unknown) => Promise<Response> | Response;
@@ -49,13 +55,14 @@ export default {
     try {
       const handler = await getServerEntry();
       const response = await handler.fetch(request, env, ctx);
-      return await normalizeCatastrophicSsrResponse(response);
+      return withSecurityHeaders(await normalizeCatastrophicSsrResponse(response), HEADER_OPTIONS);
     } catch (error) {
       console.error(error);
-      return new Response(renderErrorPage(), {
+      const errorPage = new Response(renderErrorPage(), {
         status: 500,
         headers: { "content-type": "text/html; charset=utf-8" },
       });
+      return withSecurityHeaders(errorPage, HEADER_OPTIONS);
     }
   },
 };

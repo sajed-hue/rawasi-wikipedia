@@ -1,7 +1,6 @@
-import { getAllArticles, type Article } from "@/data/articles";
-
-// Saved articles (mock). The backend has no "saved" feature, so the list is
-// kept in the browser: it survives a refresh but only exists on this device.
+// Saved (bookmarked) article ids. The backend has no "saved" feature, so the ids
+// are kept in the browser: they survive a refresh but only exist on this device.
+// The articles themselves are fetched from the API (see useSavedPosts).
 const SAVED_KEY = "rawasi-mock-saved";
 
 /** getSavedIds: the ids of saved articles, newest saved first. */
@@ -26,12 +25,4 @@ export function toggleSaved(id: string): string[] {
     // ignore: storage unavailable
   }
   return next;
-}
-
-/** getSavedArticles: the saved articles that still exist and are approved. */
-export async function getSavedArticles(): Promise<Article[]> {
-  const approved = getAllArticles().filter((a) => a.status === 2);
-  return getSavedIds()
-    .map((id) => approved.find((a) => a.id === id))
-    .filter((a): a is Article => a !== undefined);
 }

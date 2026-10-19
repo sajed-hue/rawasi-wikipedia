@@ -15,6 +15,7 @@ import { Footer } from "@/components/Footer";
 import { Header } from "@/components/Header";
 import { LanguageProvider } from "@/lib/i18n";
 import { MockAuthProvider } from "@/lib/mock-auth";
+import { SessionNotice } from "@/components/SessionNotice";
 import { SmoothScroll } from "@/components/SmoothScroll";
 
 function NotFoundComponent() {
@@ -129,6 +130,7 @@ function RootComponent() {
           <SmoothScroll />
           <div className="flex min-h-screen flex-col">
             <Header />
+            <SessionNotice />
             <main className="flex-1">
               {/* Required: nested routes render here. */}
               <Outlet />

@@ -27,7 +27,11 @@ export interface PublicPostsParams {
   pageSize?: number | undefined;
 }
 
-/** GET /api/heritage-posts — approved, public, non-deleted posts only (backend-enforced). */
+/**
+ * GET /api/heritage-posts — approved, public, non-deleted posts only (backend-enforced).
+ * Sent without a token: the result is the same for everyone, and a token would only
+ * cost the backend a pointless verification on every list request.
+ */
 export function listPublicPosts(
   params: PublicPostsParams,
   signal?: AbortSignal,
@@ -35,7 +39,7 @@ export function listPublicPosts(
   const { search, categoryId, sort, page, pageSize } = params;
   return api.get<PagedResult<HeritagePostDto>>("/api/heritage-posts", {
     query: { search, categoryId, sort, page, pageSize },
-    auth: "optional",
+    auth: "none",
     ...(signal ? { signal } : {}),
   });
 }
