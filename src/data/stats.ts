@@ -1,19 +1,23 @@
-import { getArticles } from "@/data/articles";
-import { categories } from "@/data/categories";
+import { listCategories } from "@/lib/api/categories";
+import { listPublicPosts } from "@/lib/api/posts";
 
 export interface SiteStats {
   articles: number;
   categories: number;
-  /** null = unknown. The backend guide has no public user-count endpoint yet. */
+  /** null = unknown. The backend has no public user-count endpoint yet. */
   members: number | null;
 }
 
 /**
- * getSiteStats: the numbers shown on the About page.
- * Articles and categories are real. Members needs the backend
- * (a public count of registered users); until then it stays null and is hidden.
+ * getSiteStats: the numbers shown on the About page, from the live backend.
+ * `articles` is the public post total; `categories` is the count of active
+ * categories. `members` needs a public user-count endpoint the backend does
+ * not expose yet, so it stays null and is hidden by the UI.
  */
 export async function getSiteStats(): Promise<SiteStats> {
-  const published = await getArticles({ sort: "newest", page: 1, pageSize: 1 });
-  return { articles: published.totalCount, categories: categories.length, members: null };
+  const [posts, categories] = await Promise.all([
+    listPublicPosts({ page: 1, pageSize: 1 }),
+    listCategories(),
+  ]);
+  return { articles: posts.totalCount, categories: categories.length, members: null };
 }

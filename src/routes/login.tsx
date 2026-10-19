@@ -1,6 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useMockAuth } from "@/lib/mock-auth";
-import type { SyntheticEvent } from "react";
+import { useRef, useState, type SyntheticEvent } from "react";
 
 import logo from "@/assets/logo.png";
 import sign_in_photo from "@/assets/sign_in_photo.png";
@@ -8,6 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useAuth } from "@/lib/auth";
+import { firebaseAuthErrorMessage } from "@/lib/firebase-errors";
 import { useLanguage } from "@/lib/i18n";
 
 export const Route = createFileRoute("/login")({
@@ -35,11 +36,14 @@ const copy = {
     remember: "تذكرني",
     forgot: "نسيت كلمة المرور؟",
     submit: "تسجيل الدخول",
+    submitting: "جارٍ تسجيل الدخول...",
     noAccount: "ليس لديك حساب؟",
     signup: "إنشاء حساب",
     or: "أو",
     guest: "المتابعة كزائر",
     imageAlt: "قوس حجري تراثي فلسطيني",
+    enterEmailFirst: "أدخل بريدك الإلكتروني أولاً ثم اضغط «نسيت كلمة المرور».",
+    resetSent: "أرسلنا رابط إعادة تعيين كلمة المرور إلى بريدك.",
   },
   en: {
     heading: "Welcome back to Rawasi",
@@ -51,53 +55,63 @@ const copy = {
     remember: "Remember me",
     forgot: "Forgot password?",
     submit: "Log in",
+    submitting: "Signing in...",
     noAccount: "Don't have an account?",
     signup: "Create account",
     or: "Or",
     guest: "Continue as guest",
     imageAlt: "Traditional Palestinian stone arch",
+    enterEmailFirst: "Enter your email first, then tap “Forgot password”.",
+    resetSent: "We've sent a password reset link to your email.",
   },
 } as const;
 
-
-// DEV ONLY: while developing without the backend, an email that starts with
-// "admin@" logs in as an admin so the admin screens can be tested.
-// Switch 1: set ENABLE_DEV_ADMIN_SHORTCUT to false to turn it off by hand.
-// Switch 2: import.meta.env.DEV is false in a production build (npm run build),
-//           so the shortcut disappears there automatically.
-// Delete this whole block once the real login is connected.
-const ENABLE_DEV_ADMIN_SHORTCUT = true;
-const DEV_ADMIN_SHORTCUT = import.meta.env.DEV && ENABLE_DEV_ADMIN_SHORTCUT;
-
 function LoginPage() {
-    const { signIn } = useMockAuth();
-  const navigate = useNavigate();
-
-  /**
-   * handleLogin: runs when the login form is submitted (MOCK login).
-   *
-   * BACKEND INTEGRATION (for whoever connects the API):
-   *   1. Sign in with Firebase using the email and password from this form.
-   *   2. Call GET /api/users/me with the Firebase token.
-   *   3. Call signIn(profile.role === "Admin" ? "admin" : "user",
-   *                  profile.displayName, profile.email);
-   *   4. Show an error message if Firebase rejects the credentials.
-   *   Then delete DEV_ADMIN_SHORTCUT above. Roles are assigned by the backend,
-   *   never by the frontend. UI role checks only hide or show buttons.
-   *
-   * Mock behaviour: logs in as a normal user and goes to the home page.
-   * With the dev shortcut on, an email starting with "admin@" becomes an admin.
-   */
-  function handleLogin(event: SyntheticEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const email = String(new FormData(event.currentTarget).get("email") ?? "");
-    const isDevAdmin = DEV_ADMIN_SHORTCUT && email.toLowerCase().startsWith("admin@");
-    signIn(isDevAdmin ? "admin" : "user", email.split("@")[0], email);
-    navigate({ to: "/" });
-  }
-  
   const { lang, dir } = useLanguage();
   const text = copy[lang];
+  const navigate = useNavigate();
+  const { signInWithEmail, sendPasswordReset } = useAuth();
+
+  const emailRef = useRef<HTMLInputElement>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [info, setInfo] = useState<string | null>(null);
+
+  async function handleLogin(event: SyntheticEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setError(null);
+    setInfo(null);
+    const form = new FormData(event.currentTarget);
+    const email = String(form.get("email") ?? "");
+    const password = String(form.get("password") ?? "");
+
+    setSubmitting(true);
+    try {
+      await signInWithEmail(email, password);
+      // The backend assigns the role; the UI only reads it. Go home on success.
+      navigate({ to: "/" });
+    } catch (err) {
+      setError(firebaseAuthErrorMessage(err, lang));
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function handleForgot() {
+    setError(null);
+    setInfo(null);
+    const email = emailRef.current?.value.trim() ?? "";
+    if (!email) {
+      setError(text.enterEmailFirst);
+      return;
+    }
+    try {
+      await sendPasswordReset(email);
+      setInfo(text.resetSent);
+    } catch (err) {
+      setError(firebaseAuthErrorMessage(err, lang));
+    }
+  }
 
   return (
     <section className="tatreez-bg px-4 py-10 sm:px-6 lg:py-16">
@@ -125,6 +139,7 @@ function LoginPage() {
                   id="login-email"
                   name="email"
                   type="email"
+                  ref={emailRef}
                   autoComplete="email"
                   placeholder={text.emailPlaceholder}
                   required
@@ -153,13 +168,28 @@ function LoginPage() {
                     {text.remember}
                   </Label>
                 </div>
-                <button type="button" className="font-semibold text-primary hover:underline">
+                <button
+                  type="button"
+                  onClick={handleForgot}
+                  className="font-semibold text-primary hover:underline"
+                >
                   {text.forgot}
                 </button>
               </div>
 
-              <Button type="submit" size="lg" className="h-11 w-full rounded-full">
-                {text.submit}
+              {error && (
+                <p role="alert" className="rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                  {error}
+                </p>
+              )}
+              {info && (
+                <p role="status" className="rounded-lg bg-primary/10 px-3 py-2 text-sm text-primary">
+                  {info}
+                </p>
+              )}
+
+              <Button type="submit" size="lg" disabled={submitting} className="h-11 w-full rounded-full">
+                {submitting ? text.submitting : text.submit}
               </Button>
             </form>
 
@@ -176,7 +206,7 @@ function LoginPage() {
               <span className="h-px flex-1 bg-border" />
             </div>
 
-              <Button asChild variant="outline" size="lg" className="h-11 w-full rounded-full">
+            <Button asChild variant="outline" size="lg" className="h-11 w-full rounded-full">
               <Link to="/">{text.guest}</Link>
             </Button>
           </div>

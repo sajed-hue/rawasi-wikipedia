@@ -1,6 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState, type SyntheticEvent } from "react";
-import { useMockAuth } from "@/lib/mock-auth";
 
 import logo from "@/assets/logo.png";
 import sign_in_photo from "@/assets/sign_in_photo.png";
@@ -8,6 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useAuth } from "@/lib/auth";
+import { firebaseAuthErrorMessage } from "@/lib/firebase-errors";
 import { useLanguage } from "@/lib/i18n";
 
 export const Route = createFileRoute("/signup")({
@@ -37,6 +38,7 @@ const copy = {
     terms: "أوافق على شروط الاستخدام وسياسة الخصوصية",
     termsError: "يرجى الموافقة على شروط الاستخدام وسياسة الخصوصية",
     submit: "إنشاء حساب",
+    submitting: "جارٍ إنشاء الحساب...",
     hasAccount: "لديك حساب بالفعل؟",
     login: "تسجيل الدخول",
     imageAlt: "قوس حجري تراثي فلسطيني",
@@ -53,6 +55,7 @@ const copy = {
     terms: "I agree to the Terms of Use and Privacy Policy",
     termsError: "Please agree to the Terms of Use and Privacy Policy",
     submit: "Create account",
+    submitting: "Creating account...",
     hasAccount: "Already have an account?",
     login: "Log in",
     imageAlt: "Traditional Palestinian stone arch",
@@ -62,34 +65,36 @@ const copy = {
 function SignupPage() {
   const { lang, dir } = useLanguage();
   const text = copy[lang];
+  const navigate = useNavigate();
+  const { registerWithEmail } = useAuth();
+
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [showTermsError, setShowTermsError] = useState(false);
-  const { signIn } = useMockAuth();
-  const navigate = useNavigate();
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-
-    /**
-   * BACKEND INTEGRATION: replace the mock signIn below with
-   *   1. Firebase create-account with the email and password from this form,
-   *   2. GET /api/users/me with the new token (the backend creates the profile
-   *      as a normal "User"; there is no register endpoint),
-   *   3. signIn("user", profile.displayName, profile.email).
-   * Signup can never create admins.
-   */
-  /**
-   * handleSubmit: runs when the signup form is submitted (mock signup).
-   * 1. preventDefault() stops the page from reloading.
-   * 2. If the terms checkbox is not ticked, shows the terms error and stops.
-   * 3. Otherwise signs the new user in as a normal "user" and goes home.
-   *    Real account creation will be handled by Firebase later.
-   */
-  function handleSubmit(event: SyntheticEvent<HTMLFormElement>) {
+  async function handleSubmit(event: SyntheticEvent<HTMLFormElement>) {
     event.preventDefault();
+    setError(null);
     setShowTermsError(!termsAccepted);
     if (!termsAccepted) return;
-            const form = new FormData(event.currentTarget);
-    signIn("user", String(form.get("name") ?? ""), String(form.get("email") ?? ""));
-    navigate({ to: "/" });
+
+    const form = new FormData(event.currentTarget);
+    const name = String(form.get("name") ?? "");
+    const email = String(form.get("email") ?? "");
+    const password = String(form.get("password") ?? "");
+
+    setSubmitting(true);
+    try {
+      // Firebase creates the account; the backend provisions the profile as a
+      // normal "User" on the first authenticated request. Signup never makes admins.
+      await registerWithEmail(email, password, name);
+      navigate({ to: "/" });
+    } catch (err) {
+      setError(firebaseAuthErrorMessage(err, lang));
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   return (
@@ -176,8 +181,14 @@ function SignupPage() {
                 )}
               </div>
 
-              <Button type="submit" size="lg" className="h-11 w-full rounded-full">
-                {text.submit}
+              {error && (
+                <p role="alert" className="rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                  {error}
+                </p>
+              )}
+
+              <Button type="submit" size="lg" disabled={submitting} className="h-11 w-full rounded-full">
+                {submitting ? text.submitting : text.submit}
               </Button>
             </form>
 

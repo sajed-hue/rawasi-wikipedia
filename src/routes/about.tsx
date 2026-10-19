@@ -1,10 +1,11 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { BookOpen, Box, Download, FileCheck, Image as ImageIcon, Send, ShoppingCart, Users } from "lucide-react";
-import { useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/button";
+import { Reveal } from "@/components/Reveal";
+import { CountUp } from "@/components/CountUp";
 import { useLanguage } from "@/lib/i18n";
-import { getSiteStats, type SiteStats } from "@/data/stats";
+import { useSiteStats } from "@/lib/api/queries";
 
 export const Route = createFileRoute("/about")({
   head: () => ({
@@ -84,11 +85,7 @@ const featureIcons = [Box, ShoppingCart, BookOpen, Send, ImageIcon, Users];
 function AboutPage() {
   const { lang } = useLanguage();
   const c = copy[lang];
-  const [stats, setStats] = useState<SiteStats | null>(null);
-
-  useEffect(() => {
-    getSiteStats().then(setStats);
-  }, []);
+  const { data: stats } = useSiteStats();
 
   const items = stats
     ? [
@@ -134,13 +131,15 @@ function AboutPage() {
           {c.features.map(([title, desc], i) => {
             const Icon = featureIcons[i]!;
             return (
-              <div key={title} className="rounded-3xl bg-card p-6 shadow-[var(--shadow-card)]">
+              <Reveal key={title} delay={i * 80} className="h-full">
+              <div className="h-full rounded-3xl bg-card p-6 shadow-[var(--shadow-card)]">
                 <span className="grid h-12 w-12 place-items-center rounded-2xl bg-secondary text-primary">
                   <Icon className="h-6 w-6" />
                 </span>
                 <h3 className="mt-4 text-lg font-bold text-primary">{title}</h3>
                 <p className="mt-1 text-sm text-muted-foreground">{desc}</p>
               </div>
+              </Reveal>
             );
           })}
         </div>
@@ -150,14 +149,18 @@ function AboutPage() {
       <section className="mt-16 bg-primary text-primary-foreground">
         <div className="mx-auto flex max-w-6xl flex-col items-center gap-8 px-4 py-12 lg:flex-row lg:justify-between">
           <div className="grid w-full gap-8 sm:grid-flow-col sm:auto-cols-fr lg:w-auto lg:gap-14">
-            {items.map(({ label, value, Icon }) => (
-              <div key={label} className="flex items-center justify-center gap-3">
+            {items.map(({ label, value, Icon }, i) => (
+              <Reveal key={label} delay={i * 120}>
+              <div className="flex items-center justify-center gap-3">
                 <Icon className="h-8 w-8 text-gold" />
                 <div>
-                  <div className="font-display text-3xl font-bold tabular-nums">{value}</div>
+                  <div className="font-display text-3xl font-bold tabular-nums">
+                    <CountUp value={value} suffix="+" />
+                  </div>
                   <div className="text-sm opacity-80">{label}</div>
                 </div>
               </div>
+              </Reveal>
             ))}
           </div>
           <p className="font-display text-xl font-bold text-gold">{c.motto}</p>

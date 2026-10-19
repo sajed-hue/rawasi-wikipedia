@@ -1,12 +1,12 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { Box, ImageIcon, Search } from "lucide-react";
-import { useEffect, useState, type SyntheticEvent } from "react";
+import { useState, type SyntheticEvent } from "react";
 
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { getArticles, type Article, type PagedResult } from "@/data/articles";
-import { categories, categoryLabel} from "@/data/categories";
+import { Reveal } from "@/components/Reveal";
+import { usePublicPosts, useCategoryIndex } from "@/lib/api/queries";
 import { useLanguage } from "@/lib/i18n";
 import InMain from "@/assets/InMain.png";
 
@@ -94,16 +94,8 @@ function Index() {
   const navigate = useNavigate();
 
   const [text, setText] = useState("");
-  const [latest, setLatest] = useState<PagedResult<Article> | null>(null);
-
-  // Load the 3 newest approved articles (and the total count) once.
-  useEffect(() => {
-    let alive = true;
-    getArticles({ sort: "newest", page: 1, pageSize: 3 }).then((r) => alive && setLatest(r));
-    return () => {
-      alive = false;
-    };
-  }, []);
+  const { index: catIndex } = useCategoryIndex();
+  const latest = usePublicPosts({ sort: "newest", page: 1, pageSize: 3 }).data;
 
   /** handleSearch: opens Explore with the typed words as the search. */
   function handleSearch(event: SyntheticEvent<HTMLFormElement>) {
@@ -184,30 +176,22 @@ function Index() {
         )}
 
         <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-3" dir={dir}>
-          {latest?.items.map((a) => {
-            const category = categories.find((cat) => cat.id === a.categoryId);
+          {latest?.items.map((a, i) => {
+            const category = catIndex.byId.get(a.categoryId);
             return (
-              <Link
-                key={a.id}
-                to="/article/$id"
-                params={{ id: a.id }}
-                className="group block rounded-3xl bg-card p-3 shadow-[var(--shadow-card)] transition-shadow hover:shadow-[var(--shadow-soft)]"
-              >
+              <Reveal key={a.id} delay={i * 90} className="h-full">
+                <Link
+                  to="/article/$id"
+                  params={{ id: a.id }}
+                  className="group block h-full rounded-3xl bg-card p-3 shadow-[var(--shadow-card)] transition-shadow hover:shadow-[var(--shadow-soft)]"
+                >
                 <div className="relative overflow-hidden rounded-2xl">
-                  {a.imageUrl ? (
-                    <img
-                      src={a.imageUrl}
-                      alt={a.title}
-                      className="aspect-[4/3] w-full object-cover transition-transform duration-500 group-hover:scale-105"
-                    />
-                  ) : (
-                    <div className="grid aspect-[4/3] w-full place-items-center bg-secondary text-muted-foreground/60">
-                      <ImageIcon className="h-10 w-10" />
-                    </div>
-                  )}
+                  <div className="grid aspect-[4/3] w-full place-items-center bg-secondary text-muted-foreground/60">
+                    <ImageIcon className="h-10 w-10" />
+                  </div>
                   {category && (
                     <span className="absolute top-3 right-3 rounded-full bg-card px-3 py-1 text-xs font-semibold text-primary shadow-[var(--shadow-card)]">
-                      {categoryLabel(category, lang)}
+                      {lang === "en" ? category.nameEn : category.name}
                     </span>
                   )}
                 </div>
@@ -218,12 +202,13 @@ function Index() {
                     {c.readMore}
                   </span>
                 </div>
-              </Link>
+                </Link>
+              </Reveal>
             );
           })}
         </div>
 
-        <div className="mt-12 text-center">
+        <Reveal className="mt-12 text-center">
           <p className="text-xl font-bold text-primary sm:text-2xl">{c.callout}</p>
           <p className="mt-2 text-xs text-muted-foreground">{c.calloutNote}</p>
           <Link
@@ -232,13 +217,14 @@ function Index() {
           >
             {c.calloutButton}
           </Link>
-        </div>
+        </Reveal>
       </section>
 
 
       {/* Section 4 — Interactive store banner */}
       {/* Section 4 — Interactive store banner */}
       <section className="mx-auto max-w-7xl px-4 pb-4">
+       <Reveal>
        <div className="relative overflow-hidden rounded-3xl bg-primary shadow-[var(--shadow-soft)]">
         {/* placeholder: swap for a real image later */}
        <div
@@ -264,6 +250,7 @@ function Index() {
             </button>
           </div>
         </div>
+       </Reveal>
       </section>
     </>
   );

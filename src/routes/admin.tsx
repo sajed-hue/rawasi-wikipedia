@@ -1,244 +1,88 @@
-import { createFileRoute, Navigate } from "@tanstack/react-router";
-import { Calendar, Check, ImageIcon, X } from "lucide-react";
-import { useEffect, useState } from "react";
+import { createFileRoute, Navigate, useNavigate } from "@tanstack/react-router";
+import { ClipboardCheck, History, Tags, Users } from "lucide-react";
 
-import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
-import { Textarea } from "@/components/ui/textarea";
-import {
-  approveArticle,
-  getPendingArticles,
-  rejectArticle,
-  type Article,
-} from "@/data/articles";
-import { categories, categoryLabel} from "@/data/categories";
+import { AuditPanel } from "@/components/admin/AuditPanel";
+import { CategoriesPanel } from "@/components/admin/CategoriesPanel";
+import { ModerationPanel } from "@/components/admin/ModerationPanel";
+import { UsersPanel } from "@/components/admin/UsersPanel";
 import { useLanguage } from "@/lib/i18n";
 import { useMockAuth } from "@/lib/mock-auth";
 
+const TABS = ["moderation", "categories", "users", "audit"] as const;
+type Tab = (typeof TABS)[number];
 
 /**
- * Admin review page (/admin). Admins only.
- * Shows articles waiting for review (status 1). The admin can:
- * - approve: the article becomes public (status 2)
- * - reject: needs a written reason; the article becomes status 3
+ * Admin console (/admin). Admins only — the backend also enforces the role on
+ * every endpoint (403), so this guard is UX, not security.
+ * The active tab lives in the URL (?tab=...) so it survives refresh and can be linked.
  */
 export const Route = createFileRoute("/admin")({
+  validateSearch: (search: Record<string, unknown>): { tab?: Tab } => {
+    const tab = search["tab"];
+    return typeof tab === "string" && (TABS as readonly string[]).includes(tab) ? { tab: tab as Tab } : {};
+  },
+  head: () => ({ meta: [{ title: "لوحة الإدارة | رواسي" }] }),
   component: AdminPage,
 });
 
 const copy = {
   ar: {
-    title: "لوحة المراجعة",
-    subtitle: "راجع المقالات المرسلة ووافق عليها أو ارفضها.",
-    count: "مقالات بانتظار المراجعة",
-    empty: "لا توجد مقالات بانتظار المراجعة",
-    submitted: "أُرسل في",
-    readFull: "عرض النص الكامل",
-    approve: "موافقة",
-    reject: "رفض",
-    approvedMsg: "تمت الموافقة على",
-    rejectedMsg: "تم رفض",
-    rejectTitle: "رفض المقال",
-    reasonPlaceholder: "اكتب سبب الرفض ليتمكن الكاتب من فهمه...",
-    reasonError: "سبب الرفض مطلوب (3 أحرف على الأقل)",
-    cancel: "إلغاء",
-    confirmReject: "تأكيد الرفض",
+    title: "لوحة الإدارة",
+    subtitle: "راجع المقالات، وأدِر التصنيفات والمستخدمين، وتابع سجل العمليات.",
+    tabs: { moderation: "المراجعة", categories: "التصنيفات", users: "المستخدمون", audit: "سجل العمليات" } as Record<Tab, string>,
   },
   en: {
-    title: "Review dashboard",
-    subtitle: "Review submitted articles and approve or reject them.",
-    count: "articles waiting for review",
-    empty: "No articles are waiting for review",
-    submitted: "Submitted on",
-    readFull: "Show full text",
-    approve: "Approve",
-    reject: "Reject",
-    approvedMsg: "Approved:",
-    rejectedMsg: "Rejected:",
-    rejectTitle: "Reject article",
-    reasonPlaceholder: "Write the reason so the author can understand it...",
-    reasonError: "A reason is required (at least 3 characters)",
-    cancel: "Cancel",
-    confirmReject: "Confirm rejection",
+    title: "Admin console",
+    subtitle: "Review articles, manage categories and users, and follow the activity log.",
+    tabs: { moderation: "Moderation", categories: "Categories", users: "Users", audit: "Audit log" } as Record<Tab, string>,
   },
 };
+
+const TAB_ICONS = { moderation: ClipboardCheck, categories: Tags, users: Users, audit: History } as const;
 
 function AdminPage() {
   const { lang, dir } = useLanguage();
   const t = copy[lang];
   const { isAdmin, isReady } = useMockAuth();
-  const [pending, setPending] = useState<Article[] | null>(null);
-  const [notice, setNotice] = useState("");
-  const [rejecting, setRejecting] = useState<Article | null>(null);
-  const [reason, setReason] = useState("");
-  const [reasonError, setReasonError] = useState(false);
-  const [busy, setBusy] = useState(false);
-
-  /** Reloads the queue of pending articles. */
-  async function refresh() {
-    setPending(await getPendingArticles());
-  }
-
-  // Load the queue once we know the user is an admin.
-  useEffect(() => {
-    if (isAdmin) refresh();
-  }, [isAdmin]);
-
-  /** handleApprove: approves one article, then refreshes the queue. */
-  async function handleApprove(article: Article) {
-    setBusy(true);
-    await approveArticle(article.id);
-    await refresh();
-    setBusy(false);
-    setNotice(`${t.approvedMsg} ${article.title}`);
-  }
-
-  /** closeReject: closes the rejection popup and clears what was typed. */
-  function closeReject() {
-    setRejecting(null);
-    setReason("");
-    setReasonError(false);
-  }
-
-  /** handleReject: needs a reason; rejects the article, then refreshes. */
-  async function handleReject() {
-    if (!rejecting) return;
-    if (reason.trim().length < 3) {
-      setReasonError(true);
-      return;
-    }
-    const title = rejecting.title;
-    setBusy(true);
-    await rejectArticle(rejecting.id, reason.trim());
-    closeReject();
-    await refresh();
-    setBusy(false);
-    setNotice(`${t.rejectedMsg} ${title}`);
-  }
+  const { tab = "moderation" } = Route.useSearch();
+  const navigate = useNavigate({ from: "/admin" });
 
   // Guards go AFTER all hooks above (React needs hooks to run every time).
   if (!isReady) return null;
   if (!isAdmin) return <Navigate to="/" />;
 
   return (
-    <div className="mx-auto max-w-4xl px-4 py-12 sm:px-6" dir={dir}>
+    <div className="mx-auto max-w-5xl px-4 py-12 sm:px-6" dir={dir}>
       <header>
         <h1 className="font-display text-3xl text-primary sm:text-4xl">{t.title}</h1>
         <p className="mt-2 text-muted-foreground">{t.subtitle}</p>
-        {pending && pending.length > 0 && (
-          <p className="mt-4 inline-block rounded-full bg-secondary px-4 py-1.5 text-sm font-semibold text-primary">
-            {pending.length} {t.count}
-          </p>
-        )}
       </header>
 
-      {notice && (
-        <p
-          role="status"
-          className="mt-6 rounded-2xl border border-border bg-secondary px-4 py-3 text-sm text-primary"
-        >
-          {notice}
-        </p>
-      )}
-
-      {pending && pending.length === 0 && (
-        <p className="mt-10 rounded-3xl border border-dashed border-border bg-card py-16 text-center text-muted-foreground">
-          {t.empty}
-        </p>
-      )}
-
-      <div className="mt-8 space-y-6">
-        {pending?.map((a) => {
-          const category = categories.find((c) => c.id === a.categoryId);
-          const date = new Date(a.updatedAt).toLocaleDateString(lang === "ar" ? "ar" : "en-GB", {
-            year: "numeric",
-            month: "long",
-            day: "numeric",
-          });
+      <div className="mt-8 flex gap-1 overflow-x-auto border-b border-border" role="tablist">
+        {TABS.map((key) => {
+          const Icon = TAB_ICONS[key];
           return (
-            <article
-              key={a.id}
-              className="overflow-hidden rounded-2xl border border-border bg-card shadow-[var(--shadow-card)] sm:flex"
+            <button
+              key={key}
+              type="button"
+              role="tab"
+              aria-selected={tab === key}
+              onClick={() => void navigate({ search: { tab: key }, replace: true })}
+              className={`-mb-px inline-flex shrink-0 items-center gap-2 border-b-2 px-4 py-2.5 text-sm font-semibold transition-colors ${tab === key ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-primary"}`}
             >
-              <div className="aspect-[16/10] min-h-40 bg-secondary sm:aspect-auto sm:w-56 sm:shrink-0">
-                {a.imageUrl ? (
-                  <img src={a.imageUrl} alt={a.title} className="h-full w-full object-cover" />
-                ) : (
-                  <div className="grid h-full w-full place-items-center text-muted-foreground/60">
-                    <ImageIcon className="h-10 w-10" />
-                  </div>
-                )}
-              </div>
-
-              <div className="flex min-w-0 flex-1 flex-col p-5">
-                <h2 className="font-display text-xl leading-relaxed text-foreground">{a.title}</h2>
-                <div className="mt-2 flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
-                  {category && (
-                    <span className="rounded-full bg-secondary px-3 py-1 text-secondary-foreground">
-                      {categoryLabel(category, lang)}
-                    </span>
-                  )}
-                  <span className="inline-flex items-center gap-1">
-                    <Calendar className="h-3.5 w-3.5" />
-                    {t.submitted} {date}
-                  </span>
-                </div>
-                <p className="mt-3 text-sm text-muted-foreground">{a.summary}</p>
-
-                <details className="mt-3 text-sm">
-                  <summary className="cursor-pointer font-semibold text-primary">{t.readFull}</summary>
-                  <div className="mt-2 space-y-3 leading-7 text-foreground">
-                    {a.content.split("\n\n").map((p, i) => (
-                      <p key={i}>{p}</p>
-                    ))}
-                  </div>
-                </details>
-
-                <div className="mt-5 flex flex-wrap gap-3">
-                  <Button onClick={() => handleApprove(a)} disabled={busy} className="rounded-full">
-                    <Check />
-                    {t.approve}
-                  </Button>
-                  <Button
-                    variant="outline"
-                    onClick={() => setRejecting(a)}
-                    disabled={busy}
-                    className="rounded-full text-destructive"
-                  >
-                    <X />
-                    {t.reject}
-                  </Button>
-                </div>
-              </div>
-            </article>
+              <Icon className="h-4 w-4" />
+              {t.tabs[key]}
+            </button>
           );
         })}
       </div>
 
-      <Dialog open={rejecting !== null} onOpenChange={(open) => !open && closeReject()}>
-        <DialogContent dir={dir} className="w-[calc(100%-2rem)] rounded-2xl">
-          <DialogTitle className="text-start font-display text-primary">{t.rejectTitle}</DialogTitle>
-          <DialogDescription className="text-start">{rejecting?.title}</DialogDescription>
-          <Textarea
-            value={reason}
-            onChange={(e) => {
-              setReason(e.target.value);
-              setReasonError(false);
-            }}
-            rows={4}
-            placeholder={t.reasonPlaceholder}
-          />
-          {reasonError && <p className="text-sm text-destructive">{t.reasonError}</p>}
-          <div className="flex justify-end gap-2">
-            <Button variant="outline" onClick={closeReject}>
-              {t.cancel}
-            </Button>
-            <Button onClick={handleReject} disabled={busy}>
-              {t.confirmReject}
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
+      <section className="mt-8" role="tabpanel">
+        {tab === "moderation" && <ModerationPanel enabled={isAdmin} />}
+        {tab === "categories" && <CategoriesPanel enabled={isAdmin} />}
+        {tab === "users" && <UsersPanel enabled={isAdmin} />}
+        {tab === "audit" && <AuditPanel enabled={isAdmin} />}
+      </section>
     </div>
   );
 }
