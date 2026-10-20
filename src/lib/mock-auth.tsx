@@ -36,9 +36,8 @@ export function useMockAuth() {
         console.warn("useMockAuth().signIn is a no-op; sign in through Firebase (useAuth).");
       }
     },
-    updateName: (name: string) => {
-      void auth.updateDisplayName(name);
-    },
+    /** Saves the display name; rejects when the backend refuses it (callers show the error). */
+    updateName: (name: string): Promise<void> => auth.updateDisplayName(name),
     signOut: () => {
       void auth.signOut();
     },

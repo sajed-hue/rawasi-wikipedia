@@ -33,6 +33,7 @@ import { api, setApiTokenProvider, setApiUnauthorizedHandler } from "@/lib/api/c
 import { isApiError } from "@/lib/api/problem";
 import type { UpdateCurrentUserRequest, UserProfileDto, UserRole } from "@/lib/api/types";
 import { getFirebaseAuth, isFirebaseConfigured } from "@/lib/firebase";
+import { normalizeDisplayName } from "@/lib/display-name";
 
 /**
  * - loading: Firebase hasn't reported yet
@@ -194,12 +195,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     async (email: string, password: string, displayName?: string) => {
       const auth = requireAuth();
       const credential = await createUserWithEmailAndPassword(auth, email, password);
-      if (displayName && credential.user) {
-        await updateProfile(credential.user, { displayName });
-      }
       // The first authenticated call to the backend provisions the local user row.
+      const name = normalizeDisplayName(displayName);
+      if (name && credential.user) {
+        await updateProfile(credential.user, { displayName: name });
+        // createUser fires onAuthStateChanged immediately, so the profile request that
+        // provisions the row carries a token issued BEFORE the name existed and the backend
+        // stores a placeholder. Save the name explicitly; the account already exists, so a
+        // failure here must not fail sign-up (the name can be edited later).
+        try {
+          const payload: UpdateCurrentUserRequest = { displayName: name };
+          await api.put<void>("/api/users/me", payload, { auth: "required" });
+          await loadProfile();
+        } catch {
+          // Ignored on purpose; see above.
+        }
+      }
     },
-    [],
+    [loadProfile],
   );
 
   const sendPasswordReset = useCallback(async (email: string) => {

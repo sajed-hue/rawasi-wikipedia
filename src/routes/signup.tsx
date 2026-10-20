@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { useAuth } from "@/lib/auth";
 import { firebaseAuthErrorMessage } from "@/lib/firebase-errors";
 import { useLanguage } from "@/lib/i18n";
+import { DISPLAY_NAME_MAX_LENGTH } from "@/lib/display-name";
 
 export const Route = createFileRoute("/signup")({
   head: () => ({
@@ -125,6 +126,7 @@ function SignupPage() {
                   autoComplete="name"
                   placeholder={text.fullNamePlaceholder}
                   minLength={2}
+                  maxLength={DISPLAY_NAME_MAX_LENGTH}
                   required
                   className="h-11 bg-background"
                 />

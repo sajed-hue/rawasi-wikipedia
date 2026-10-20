@@ -5,10 +5,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useLanguage } from "@/lib/i18n";
 import { useMockAuth } from "@/lib/mock-auth";
+import { DISPLAY_NAME_MAX_LENGTH } from "@/lib/display-name";
 
 // Placeholder limit. The backend refuses names that are too long (error 400),
 // but the guide doesn't say how long: ask the backend team for the real number.
-const MAX_NAME = 60;
+const MAX_NAME = DISPLAY_NAME_MAX_LENGTH; // same limit as sign-up and the backend
 
 const copy = {
   ar: {
@@ -24,6 +25,7 @@ const copy = {
     saved: "تم حفظ الاسم",
     errorShort: "الاسم مطلوب (حرفان على الأقل)",
     errorLong: `الاسم طويل جدًا (حتى ${MAX_NAME} حرفًا)`,
+    errorSave: "تعذّر حفظ الاسم. حاول مرة أخرى.",
   },
   en: {
     account: "My account",
@@ -38,6 +40,7 @@ const copy = {
     saved: "Name saved",
     errorShort: "A name is required (at least 2 characters)",
     errorLong: `The name is too long (up to ${MAX_NAME} characters)`,
+    errorSave: "Couldn't save the name. Please try again.",
   },
 };
 
@@ -55,6 +58,7 @@ export function AccountCard() {
   const [draft, setDraft] = useState("");
   const [error, setError] = useState("");
   const [justSaved, setJustSaved] = useState(false);
+  const [saving, setSaving] = useState(false);
 
   /** startEdit: opens the name field with the current name in it. */
   function startEdit() {
@@ -64,9 +68,10 @@ export function AccountCard() {
     setEditing(true);
   }
 
-  /** handleSave: checks the new name, saves it, and closes the field. */
-  function handleSave(event: SyntheticEvent<HTMLFormElement>) {
+  /** handleSave: checks the new name, saves it, and closes the field only once it's saved. */
+  async function handleSave(event: SyntheticEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (saving) return;
     const value = draft.trim();
     if (value.length < 2) {
       setError(t.errorShort);
@@ -76,9 +81,17 @@ export function AccountCard() {
       setError(t.errorLong);
       return;
     }
-    updateName(value);
-    setEditing(false);
-    setJustSaved(true);
+    setSaving(true);
+    try {
+      await updateName(value);
+      setEditing(false);
+      setJustSaved(true);
+    } catch {
+      // Keep the field open with the user's text so they can retry.
+      setError(t.errorSave);
+    } finally {
+      setSaving(false);
+    }
   }
 
   return (
@@ -109,7 +122,7 @@ export function AccountCard() {
                 autoFocus
                 className="h-10 max-w-xs bg-background"
               />
-              <Button type="submit" size="sm" className="h-10 rounded-full px-4">
+              <Button type="submit" size="sm" disabled={saving} className="h-10 rounded-full px-4">
                 <Check />
                 {t.save}
               </Button>
