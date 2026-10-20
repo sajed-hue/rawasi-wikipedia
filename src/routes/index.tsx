@@ -6,6 +6,7 @@ import { useState, type SyntheticEvent } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Reveal } from "@/components/Reveal";
+import { CoverImage } from "@/components/CoverImage";
 import { usePublicPosts, useCategoryIndex } from "@/lib/api/queries";
 import { useLanguage } from "@/lib/i18n";
 import InMain from "@/assets/InMain.png";
@@ -186,8 +187,14 @@ function Index() {
                   className="group block h-full rounded-3xl bg-card p-3 shadow-[var(--shadow-card)] transition-shadow hover:shadow-[var(--shadow-soft)]"
                 >
                 <div className="relative overflow-hidden rounded-2xl">
-                  <div className="grid aspect-[4/3] w-full place-items-center bg-secondary text-muted-foreground/60">
-                    <ImageIcon className="h-10 w-10" />
+                  <div className="grid aspect-[4/3] w-full place-items-center overflow-hidden bg-secondary text-muted-foreground/60">
+                    <CoverImage
+                      postId={a.id}
+                      mediaId={a.coverMediaId}
+                      alt={a.title}
+                      className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                      fallback={<ImageIcon className="h-10 w-10" />}
+                    />
                   </div>
                   {category && (
                     <span className="absolute top-3 right-3 rounded-full bg-card px-3 py-1 text-xs font-semibold text-primary shadow-[var(--shadow-card)]">

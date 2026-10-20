@@ -27,6 +27,7 @@ import {
 } from "@/components/ui/select";
 import { categoryLabel, groupLabel } from "@/data/categories";
 import { Reveal } from "@/components/Reveal";
+import { CoverImage } from "@/components/CoverImage";
 import { usePublicPosts, useCategoryIndex } from "@/lib/api/queries";
 import type { PostSort } from "@/lib/api/types";
 import { useLanguage } from "@/lib/i18n";
@@ -275,7 +276,13 @@ function ExplorePage() {
             <Reveal key={art.id} delay={i * 70} className="h-full">
             <article className="flex h-full flex-col overflow-hidden rounded-3xl border border-border bg-card shadow-[var(--shadow-card)]">
               <div className="m-3 flex aspect-[4/3] items-center justify-center overflow-hidden rounded-2xl border border-[color-mix(in_oklab,var(--gold)_45%,transparent)] bg-background text-muted-foreground/60">
-                <ImageIcon className="h-10 w-10" />
+                <CoverImage
+                  postId={art.id}
+                  mediaId={art.coverMediaId}
+                  alt={art.title}
+                  className="h-full w-full object-cover"
+                  fallback={<ImageIcon className="h-10 w-10" />}
+                />
               </div>
               <div className="flex flex-1 flex-col px-5 pb-5">
                 <div className="flex items-center justify-between gap-2">

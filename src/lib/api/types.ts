@@ -70,6 +70,8 @@ export interface HeritagePostDto {
   status: HeritagePostStatus;
   createdAt: IsoDateString;
   updatedAt: IsoDateString | null;
+  /** Cover image for cards (primary, else first by display order); null when the post has none. */
+  coverMediaId?: Guid | null;
 }
 
 /** Media attachment metadata. Binary is fetched separately via the content endpoint. */
