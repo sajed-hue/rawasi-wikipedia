@@ -6,7 +6,13 @@
 // (signed-out) until real config is provided in .env.local.
 
 import { initializeApp, getApps, getApp, type FirebaseApp } from "firebase/app";
-import { getAuth, type Auth } from "firebase/auth";
+import {
+  browserLocalPersistence,
+  browserSessionPersistence,
+  indexedDBLocalPersistence,
+  initializeAuth,
+  type Auth,
+} from "firebase/auth";
 
 interface FirebaseClientConfig {
   apiKey: string;
@@ -49,7 +55,14 @@ function getFirebaseApp(): FirebaseApp {
 export function getFirebaseAuth(): Auth | null {
   if (!isBrowser || !isFirebaseConfigured()) return null;
   if (!cachedAuth) {
-    cachedAuth = getAuth(getFirebaseApp());
+    // Same persistence as getAuth(), but WITHOUT the popup/redirect resolver: getAuth()
+    // eagerly loads https://apis.google.com/js/api.js for popup/redirect sign-in, which
+    // this app doesn't use (email/password only) and which the CSP rightly blocks.
+    // If Google sign-in is added later, pass browserPopupRedirectResolver here and allow
+    // apis.google.com in script-src.
+    cachedAuth = initializeAuth(getFirebaseApp(), {
+      persistence: [indexedDBLocalPersistence, browserLocalPersistence, browserSessionPersistence],
+    });
   }
   return cachedAuth;
 }
