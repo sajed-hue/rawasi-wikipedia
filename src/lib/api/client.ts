@@ -40,7 +40,7 @@ export function setApiUnauthorizedHandler(handler: (() => void) | null): void {
 export type AuthMode = "required" | "optional" | "none";
 export type ResponseKind = "json" | "blob" | "void";
 
-export type QueryValue = string | number | boolean | null | undefined;
+export type QueryValue = string | number | boolean | readonly string[] | null | undefined;
 
 export interface RequestOptions {
   method?: "GET" | "POST" | "PUT" | "DELETE";
@@ -86,7 +86,11 @@ export function buildQueryString(params: Record<string, QueryValue>): string {
   const search = new URLSearchParams();
   for (const [key, value] of Object.entries(params)) {
     if (value === null || value === undefined || value === "") continue;
-    search.append(key, String(value));
+    if (typeof value === "object") {
+      for (const item of value) search.append(key, item);
+    } else {
+      search.append(key, String(value));
+    }
   }
   const qs = search.toString();
   return qs ? `?${qs}` : "";

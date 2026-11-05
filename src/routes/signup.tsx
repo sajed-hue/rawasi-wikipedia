@@ -2,7 +2,7 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState, type SyntheticEvent } from "react";
 
 import logo from "@/assets/logo.png";
-import sign_in_photo from "@/assets/sign_in_photo.png";
+import { AuthIllustration } from "@/components/AuthIllustration";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
@@ -208,11 +208,7 @@ function SignupPage() {
             <span className="absolute left-0 top-1/2 h-3 w-3 -translate-y-1/2 rotate-45 border border-gold bg-background" />
             <span className="absolute right-0 top-1/2 h-3 w-3 -translate-y-1/2 rotate-45 border border-gold bg-background" />
             <div className="h-[620px] overflow-hidden rounded-t-[13rem] rounded-b-3xl border border-gold bg-muted p-1.5 shadow-[var(--shadow-soft)]">
-              <img
-                src={sign_in_photo}
-                alt={text.imageAlt}
-                className="h-full w-full rounded-t-[12.5rem] rounded-b-[1.15rem] object-cover"
-              />
+              <AuthIllustration alt={text.imageAlt} />
             </div>
           </div>
         </div>

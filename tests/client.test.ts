@@ -21,6 +21,12 @@ describe("buildQueryString", () => {
     expect(buildQueryString({})).toBe("");
   });
 
+  test("encodes repeated category IDs and keeps the draft status value", () => {
+    expect(buildQueryString({ page: 10, status: 0, searchCategoryIds: ["first", "second"] })).toBe(
+      "?page=10&status=0&searchCategoryIds=first&searchCategoryIds=second",
+    );
+  });
+
   test("encodes Arabic search text", () => {
     expect(buildQueryString({ search: "صابون" })).toBe(`?search=${encodeURIComponent("صابون")}`);
   });

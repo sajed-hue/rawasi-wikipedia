@@ -9,7 +9,9 @@ import { Reveal } from "@/components/Reveal";
 import { CoverImage } from "@/components/CoverImage";
 import { usePublicPosts, useCategoryIndex } from "@/lib/api/queries";
 import { useLanguage } from "@/lib/i18n";
-import InMain from "@/assets/InMain.png";
+import hero480 from "@/assets/InMain-480.webp";
+import hero800 from "@/assets/InMain-800.webp";
+import hero1200 from "@/assets/InMain-1200.webp";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -114,7 +116,16 @@ function Index() {
         <div className="mx-auto grid max-w-7xl items-center gap-10 px-4 py-14 lg:grid-cols-2 lg:py-20">
           <div className="relative">
             <div className="overflow-hidden rounded-t-[12rem] rounded-b-3xl border border-[color-mix(in_oklab,var(--gold)_60%,transparent)] bg-card shadow-[var(--shadow-soft)]">
-              <img src={InMain} alt={c.InMain} className="h-105 w-full object-cover" />
+              <img
+                src={hero800}
+                srcSet={`${hero480} 480w, ${hero800} 800w, ${hero1200} 1200w`}
+                sizes="(min-width: 1280px) 604px, (min-width: 1024px) calc(50vw - 36px), calc(100vw - 32px)"
+                width={800}
+                height={652}
+                alt={c.InMain}
+                fetchPriority="high"
+                className="h-105 w-full object-cover"
+              />
             </div>
             <div className="tatreez-bg mx-auto mt-4 h-5 w-2/3 rounded-full opacity-60" />
           </div>

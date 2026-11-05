@@ -62,6 +62,7 @@ export interface MyPostsParams {
   pageSize?: number | undefined;
   status?: HeritagePostStatus | undefined;
   search?: string | undefined;
+  searchCategoryIds?: readonly string[] | undefined;
 }
 
 /** GET /api/users/me/heritage-posts — every non-deleted post of the current user, any status. */
@@ -69,9 +70,9 @@ export function listMyPosts(
   params: MyPostsParams,
   signal?: AbortSignal,
 ): Promise<PagedResult<HeritagePostDto>> {
-  const { page, pageSize, status, search } = params;
+  const { page, pageSize, status, search, searchCategoryIds } = params;
   return api.get<PagedResult<HeritagePostDto>>("/api/users/me/heritage-posts", {
-    query: { page, pageSize, status, search },
+    query: { page, pageSize, status, search, searchCategoryIds },
     auth: "required",
     ...(signal ? { signal } : {}),
   });

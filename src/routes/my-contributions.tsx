@@ -11,7 +11,7 @@ import { getSavedIds, toggleSaved } from "@/data/saved";
 import { apiErrorMessage } from "@/lib/api/messages";
 import { archivePost, deletePost, submitPost } from "@/lib/api/posts";
 import { useCategoryIndex, useInvalidatePosts, useMyPosts, useSavedPosts } from "@/lib/api/queries";
-import type { HeritagePostDto } from "@/lib/api/types";
+import { HeritagePostStatus, type HeritagePostDto } from "@/lib/api/types";
 import { useLanguage } from "@/lib/i18n";
 import { useMockAuth } from "@/lib/mock-auth";
 import "@/components/contributions.css";
@@ -40,7 +40,11 @@ const copy = {
     tabSaved: "المحفوظة",
     publishedStat: "تم نشرها",
     total: "إجمالي المشاركات",
-    recent: "مشاركاتي الأخيرة",
+    recent: "كل مشاركاتي",
+    previousPage: "السابقة",
+    nextPage: "التالية",
+    pagination: "صفحات المشاركات",
+    pageLabel: (page: number, total: number) => `صفحة ${page} من ${total}`,
     search: "ابحث في مشاركاتك",
     all: "الكل",
     draft: "مسودة",
@@ -80,7 +84,11 @@ const copy = {
     tabSaved: "Saved",
     publishedStat: "Published",
     total: "Total contributions",
-    recent: "My recent contributions",
+    recent: "All my contributions",
+    previousPage: "Previous",
+    nextPage: "Next",
+    pagination: "Contribution pages",
+    pageLabel: (page: number, total: number) => `Page ${page} of ${total}`,
     search: "Search your contributions",
     all: "All",
     draft: "Draft",
@@ -117,6 +125,15 @@ const copy = {
 type SubmissionStatus = "draft" | "pending" | "published" | "rejected" | "archived";
 type Status = "all" | SubmissionStatus;
 const FILTERS: Status[] = ["all", "draft", "pending", "published", "rejected", "archived"];
+const PAGE_SIZE = 12;
+const SEARCH_MAX_LENGTH = 200;
+const STATUS_FILTER: Record<SubmissionStatus, HeritagePostStatus> = {
+  draft: HeritagePostStatus.Draft,
+  pending: HeritagePostStatus.PendingReview,
+  published: HeritagePostStatus.Approved,
+  rejected: HeritagePostStatus.Rejected,
+  archived: HeritagePostStatus.Archived,
+};
 
 /** Backend HeritagePostStatus (0–4) -> this page's label key. */
 const STATUS_BY_CODE: Record<number, SubmissionStatus> = {
@@ -169,19 +186,65 @@ function ContributionsPage() {
   const t = copy[lang];
   const [tab, setTab] = useState<"mine" | "saved">("mine");
   const [query, setQuery] = useState("");
+  const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
   const [filter, setFilter] = useState<Status>("all");
   const [selected, setSelected] = useState<Submission | null>(null);
   const [deleting, setDeleting] = useState<Submission | null>(null);
   const [notice, setNotice] = useState<{ kind: "ok" | "error"; text: string } | null>(null);
   const [savedIds, setSavedIds] = useState<string[]>([]);
 
-  const { index: catIndex } = useCategoryIndex();
-  // Personal lists are small; fetch up to the backend's page maximum and filter locally.
-  const myPosts = useMyPosts({ page: 1, pageSize: 100 }, isLoggedIn);
+  const { index: catIndex, isLoading: categoriesLoading } = useCategoryIndex();
+  const showMine = isLoggedIn && tab === "mine";
+  const needle = search.toLocaleLowerCase(lang);
+  const searchCategoryIds = needle
+    ? catIndex.all
+        .filter(({ id }) => catIndex.name(id, lang).toLocaleLowerCase(lang).includes(needle))
+        .slice(0, 100)
+        .map(({ id }) => id)
+    : undefined;
+  const myPosts = useMyPosts(
+    {
+      page,
+      pageSize: PAGE_SIZE,
+      status: filter === "all" ? undefined : STATUS_FILTER[filter],
+      search: search || undefined,
+      searchCategoryIds,
+    },
+    showMine && (!search || !categoriesLoading),
+  );
+  const totalPosts = useMyPosts({ page: 1, pageSize: 1 }, showMine);
+  const publishedPosts = useMyPosts({ page: 1, pageSize: 1, status: HeritagePostStatus.Approved }, showMine);
+  const pendingPosts = useMyPosts({ page: 1, pageSize: 1, status: HeritagePostStatus.PendingReview }, showMine);
   const saved = useSavedPosts(savedIds);
   const invalidate = useInvalidatePosts();
 
   useEffect(() => setSavedIds(getSavedIds()), []);
+
+  useEffect(() => {
+    const nextSearch = query.trim();
+    if (nextSearch === search) return;
+    const timer = setTimeout(() => {
+      setSearch(nextSearch);
+      setPage(1);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [query, search]);
+
+  const totalPages = myPosts.data?.totalPages;
+  const lastPage = Math.max(1, totalPages ?? page);
+
+  // A mutation or concurrent change can remove the current last page.
+  useEffect(() => {
+    if (page > lastPage) setPage(lastPage);
+  }, [page, lastPage]);
+
+  function resetFilters() {
+    setFilter("all");
+    setQuery("");
+    setSearch("");
+    setPage(1);
+  }
 
   const onError = (error: unknown) => setNotice({ kind: "error", text: apiErrorMessage(error, lang) });
   const deleteMutation = useMutation({ mutationFn: deletePost, onError });
@@ -235,13 +298,13 @@ function ContributionsPage() {
   if (!isLoggedIn) return <AccessNotice />;
 
   const submissions = (myPosts.data?.items ?? []).map((p) => toSubmission(p, catIndex.name));
-  const needle = query.trim().toLocaleLowerCase(lang);
-  const visible = submissions.filter((s) => (filter === "all" || s.status === filter) && `${s[lang].title} ${s[lang].category} ${s[lang].excerpt}`.toLocaleLowerCase(lang).includes(needle));
+  const hasFilters = filter !== "all" || search !== "";
+  const loadingResults = myPosts.isPending || page > lastPage;
   const Arrow = lang === "ar" ? ArrowLeft : ArrowRight;
   const stats = [
-    { label: t.publishedStat, count: submissions.filter((s) => s.status === "published").length, icon: CheckCircle2, tone: "contribution-published" },
-    { label: t.pending, count: submissions.filter((s) => s.status === "pending").length, icon: Clock3, tone: "contribution-pending" },
-    { label: t.total, count: myPosts.data?.totalCount ?? submissions.length, icon: FileText, tone: "bg-secondary text-primary" },
+    { label: t.publishedStat, count: publishedPosts.data?.totalCount, icon: CheckCircle2, tone: "contribution-published" },
+    { label: t.pending, count: pendingPosts.data?.totalCount, icon: Clock3, tone: "contribution-pending" },
+    { label: t.total, count: totalPosts.data?.totalCount, icon: FileText, tone: "bg-secondary text-primary" },
   ];
 
   return (
@@ -280,27 +343,27 @@ function ContributionsPage() {
       {tab === "mine" && (
         <>
           <section aria-label={t.total} className="mt-9 grid gap-4 sm:grid-cols-3">
-            {stats.map(({ label, count, icon: Icon, tone }) => <div key={label} className="flex items-center gap-4 rounded-2xl border border-border bg-card p-5 shadow-[var(--shadow-card)]"><span className={`grid h-14 w-14 shrink-0 place-items-center rounded-full ${tone}`}><Icon className="h-7 w-7" /></span><div><p className="text-sm text-muted-foreground">{label}</p><p className="mt-1 text-3xl font-bold tabular-nums text-foreground">{count}</p></div></div>)}
+            {stats.map(({ label, count, icon: Icon, tone }) => <div key={label} className="flex items-center gap-4 rounded-2xl border border-border bg-card p-5 shadow-[var(--shadow-card)]"><span className={`grid h-14 w-14 shrink-0 place-items-center rounded-full ${tone}`}><Icon className="h-7 w-7" /></span><div><p className="text-sm text-muted-foreground">{label}</p><p className="mt-1 text-3xl font-bold tabular-nums text-foreground">{count ?? "—"}</p></div></div>)}
           </section>
 
           <section className="mt-12" aria-labelledby="recent-contributions">
             <h2 id="recent-contributions" className="font-display text-xl text-primary sm:text-2xl">{t.recent}</h2>
             <div className="mt-5 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-              <div className="relative w-full lg:max-w-sm"><Search className="pointer-events-none absolute start-4 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground" /><Input type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder={t.search} aria-label={t.search} className="h-11 rounded-full bg-background ps-12" /></div>
-              <div className="flex flex-wrap gap-2" role="group" aria-label={t.statusGroup}>{FILTERS.map((status) => <Button key={status} variant={filter === status ? "default" : "outline"} aria-pressed={filter === status} onClick={() => setFilter(status)} className="rounded-full px-4">{t[status]}</Button>)}</div>
+              <div className="relative w-full lg:max-w-sm"><Search className="pointer-events-none absolute start-4 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground" /><Input type="search" maxLength={SEARCH_MAX_LENGTH} value={query} onChange={(e) => setQuery(e.target.value)} placeholder={t.search} aria-label={t.search} className="h-11 rounded-full bg-background ps-12" /></div>
+              <div className="flex flex-wrap gap-2" role="group" aria-label={t.statusGroup}>{FILTERS.map((status) => <Button key={status} variant={filter === status ? "default" : "outline"} aria-pressed={filter === status} onClick={() => { setFilter(status); setPage(1); }} className="rounded-full px-4">{t[status]}</Button>)}</div>
             </div>
 
-            {myPosts.isLoading && <p className="py-16 text-center text-muted-foreground" aria-busy="true">{t.loading}</p>}
+            {loadingResults && <p role="status" className="py-16 text-center text-muted-foreground">{t.loading}</p>}
 
             {myPosts.isError && (
               <div className="py-16 text-center">
-                <p className="text-muted-foreground">{t.loadError}</p>
+                <p role="alert" className="text-muted-foreground">{t.loadError}</p>
                 <Button variant="outline" className="mt-4 rounded-full" onClick={() => void myPosts.refetch()}><RefreshCw />{t.retry}</Button>
               </div>
             )}
 
             <div className="mt-6 grid gap-6 md:grid-cols-2 lg:grid-cols-3" aria-live="polite">
-              {visible.map((submission) => {
+              {submissions.map((submission) => {
                 const text = submission[lang];
                 const StatusIcon = STATUS_ICON[submission.status];
                 const canEdit = submission.rawStatus === 0 || submission.rawStatus === 3;
@@ -339,7 +402,27 @@ function ContributionsPage() {
                 );
               })}
             </div>
-            {myPosts.isSuccess && visible.length === 0 && <div className="py-16 text-center"><FileText className="mx-auto h-10 w-10 text-muted-foreground" /><p className="mt-4 text-muted-foreground">{submissions.length === 0 ? t.none : t.empty}</p>{submissions.length > 0 && <Button variant="link" className="mt-3" onClick={() => { setFilter("all"); setQuery(""); }}>{t.reset}</Button>}</div>}
+            {myPosts.isSuccess && !loadingResults && submissions.length === 0 && (
+              <div className="py-16 text-center">
+                <FileText aria-hidden="true" className="mx-auto h-10 w-10 text-muted-foreground" />
+                <p className="mt-4 text-muted-foreground">{hasFilters ? t.empty : t.none}</p>
+                {hasFilters && <Button variant="link" className="mt-3" onClick={resetFilters}>{t.reset}</Button>}
+              </div>
+            )}
+
+            {(page > 1 || lastPage > 1) && (
+              <nav aria-label={t.pagination} className="mt-8 flex flex-wrap items-center justify-center gap-3">
+                <Button variant="outline" disabled={page <= 1 || loadingResults} onClick={() => setPage(page - 1)}>
+                  {t.previousPage}
+                </Button>
+                <span role="status" className="text-sm tabular-nums text-muted-foreground">
+                  {totalPages !== undefined && !loadingResults ? t.pageLabel(page, lastPage) : null}
+                </span>
+                <Button variant="outline" disabled={page >= lastPage || loadingResults} onClick={() => setPage(page + 1)}>
+                  {t.nextPage}
+                </Button>
+              </nav>
+            )}
           </section>
         </>
       )}
