@@ -21,11 +21,13 @@ import { ApiError } from "./problem";
 export type TokenProvider = (forceRefresh?: boolean) => Promise<string | null>;
 
 let tokenProvider: TokenProvider = async () => null;
+let getSessionIdentity: () => object | null = () => null;
 let onUnauthorized: (() => void) | null = null;
 
 /** Called by the auth layer once Firebase is ready. */
-export function setApiTokenProvider(provider: TokenProvider): void {
+export function setApiTokenProvider(provider: TokenProvider, identity: () => object | null = () => null): void {
   tokenProvider = provider;
+  getSessionIdentity = identity;
 }
 
 /** Called by the auth layer; invoked when a request stays 401 after a refresh attempt. */
@@ -146,13 +148,21 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
   } = options;
 
   const url = buildUrl(path, query);
+  const identity = auth === "none" ? null : getSessionIdentity();
+  const checkSession = () => {
+    if (signal?.aborted || (auth !== "none" && getSessionIdentity() !== identity)) {
+      throw ApiError.canceled();
+    }
+  };
 
   const send = async (forceRefresh: boolean): Promise<Response> => {
     const headers: Record<string, string> = { Accept: "application/json" };
 
     // Attach the Firebase token when the route needs it.
     if (auth !== "none") {
+      checkSession();
       const token = await tokenProvider(forceRefresh);
+      checkSession();
       if (token) {
         headers["Authorization"] = `Bearer ${token}`;
       } else if (auth === "required") {
@@ -194,10 +204,12 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
   };
 
   let response = await send(false);
+  checkSession();
 
   // 401: try exactly one token refresh + retry, then give up (never loop).
   if (response.status === 401 && auth !== "none") {
     response = await send(true);
+    checkSession();
     if (response.status === 401) {
       onUnauthorized?.();
       throw ApiError.fromResponse(401, await parseJsonSafely(response));
@@ -211,10 +223,9 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
   if (responseKind === "void" || response.status === 204) {
     return undefined as T;
   }
-  if (responseKind === "blob") {
-    return (await response.blob()) as T;
-  }
-  return (await parseJsonSafely(response)) as T;
+  const result = responseKind === "blob" ? await response.blob() : await parseJsonSafely(response);
+  checkSession();
+  return result as T;
 }
 
 // ---------------------------------------------------------------------------

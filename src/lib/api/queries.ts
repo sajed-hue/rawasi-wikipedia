@@ -25,6 +25,8 @@ import {
   type PostMediaDto,
 } from "./types";
 import { getSiteStats, type SiteStats } from "@/data/stats";
+import { useAuth } from "@/lib/auth";
+import { isApiError } from "./problem";
 
 const isBrowser = typeof window !== "undefined";
 
@@ -51,10 +53,11 @@ export function usePublicPosts(params: PublicPostsParams) {
 
 /** Single post (public, or the owner's own unpublished post). 404 => ApiError "notFound". */
 export function usePublicPost(id: string, enabled = true) {
+  const { isReady } = useAuth();
   return useQuery<HeritagePostDto>({
     queryKey: queryKeys.posts.detail(id),
     queryFn: ({ signal }) => getPublicPost(id, signal),
-    enabled: isBrowser && enabled && id.length > 0,
+    enabled: isBrowser && isReady && enabled && id.length > 0,
   });
 }
 
@@ -71,18 +74,20 @@ export function useMyPosts(params: MyPostsParams, enabled = true) {
  * Bookmarked posts, fetched by id. Saved ids live in the browser (the backend
  * has no "saved" feature); ids that 404 or are no longer approved are dropped.
  */
-export function useSavedPosts(ids: string[]) {
+export function useSavedPosts(ids: string[], enabled: boolean) {
   return useQueries({
     queries: ids.map((id) => ({
       queryKey: queryKeys.posts.detail(id),
       queryFn: ({ signal }: { signal: AbortSignal }) => getPublicPost(id, signal),
-      enabled: isBrowser,
+      enabled: isBrowser && enabled,
     })),
     combine: (results) => ({
       posts: results.flatMap((r) =>
         r.data && r.data.status === HeritagePostStatus.Approved ? [r.data] : [],
       ),
       isLoading: results.some((r) => r.isLoading),
+      hasLoadError: results.some((r) => r.isError && (!isApiError(r.error) || r.error.kind !== "notFound")),
+      retry: () => Promise.all(results.filter((r) => r.isError).map((r) => r.refetch())),
     }),
   });
 }
@@ -110,10 +115,11 @@ export function useCategoryIndex(): {
 
 /** Media metadata for a post. */
 export function usePostMedia(postId: string, enabled = true) {
+  const { isReady } = useAuth();
   return useQuery<PostMediaDto[]>({
     queryKey: queryKeys.media(postId),
     queryFn: ({ signal }) => listPostMedia(postId, signal),
-    enabled: isBrowser && enabled && postId.length > 0,
+    enabled: isBrowser && isReady && enabled && postId.length > 0,
   });
 }
 

@@ -1,27 +1,18 @@
-import { QueryClient } from "@tanstack/react-query";
 import { createRouter } from "@tanstack/react-router";
+import { createIsomorphicFn } from "@tanstack/react-start";
+import { getRequestHeader } from "@tanstack/react-start/server";
 import { routeTree } from "./routeTree.gen";
-import { isApiError } from "@/lib/api/problem";
+
+const getNonce = createIsomorphicFn()
+  .server(() => getRequestHeader("x-rawasi-csp-nonce"))
+  .client(() => document.querySelector<HTMLMetaElement>('meta[property="csp-nonce"]')?.content);
 
 export const getRouter = () => {
-  const queryClient = new QueryClient({
-    defaultOptions: {
-      queries: {
-        staleTime: 30_000,
-        refetchOnWindowFocus: false,
-        // Retry only transient failures (network / 503); never retry 4xx.
-        retry: (failureCount, error) =>
-          isApiError(error) ? error.isTransient && failureCount < 2 : failureCount < 2,
-      },
-    },
-  });
-
-  const router = createRouter({
+  const nonce = getNonce();
+  return createRouter({
     routeTree,
-    context: { queryClient },
     scrollRestoration: true,
+    ssr: nonce ? { nonce } : {},
     defaultPreloadStaleTime: 0,
   });
-
-  return router;
 };

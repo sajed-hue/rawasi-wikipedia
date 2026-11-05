@@ -26,6 +26,16 @@ describe("security headers", () => {
     expect(headers["Strict-Transport-Security"]).toBe("max-age=31536000");
   });
 
+  test("allows only nonce-bearing inline scripts in production", () => {
+    const csp = buildCsp("https://api.example.com", "per-request-nonce");
+    expect(csp.split("; ").find((directive) => directive.startsWith("script-src ")))
+      .toBe("script-src 'self' 'nonce-per-request-nonce'");
+    const response = withSecurityHeaders(new Response("<html></html>", {
+      headers: { "Content-Type": "text/html", "Cache-Control": "public, max-age=3600" },
+    }), { isProd: true, apiOrigin: "", nonce: "per-request-nonce" });
+    expect(response.headers.get("Cache-Control")).toBe("no-store");
+  });
+
   test("CSP is only sent on HTML responses", () => {
     expect(securityHeaders({ isProd: true, apiOrigin: "", isHtml: false })["Content-Security-Policy"]).toBeUndefined();
   });

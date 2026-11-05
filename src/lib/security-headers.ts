@@ -26,15 +26,14 @@ export function originOf(url: string | undefined): string {
 
 /**
  * Content-Security-Policy for the app.
- * - script-src needs 'unsafe-inline': TanStack Start SSR injects inline hydration
- *   scripts. External scripts are still blocked.
+ * TanStack Start uses the request nonce on its inline hydration scripts.
  * - img-src allows the API origin (media proxy) plus blob: (private-image previews).
  */
-export function buildCsp(apiOrigin: string): string {
+export function buildCsp(apiOrigin: string, nonce?: string): string {
   const api = apiOrigin ? [apiOrigin] : [];
   const directives: Record<string, string[]> = {
     "default-src": ["'self'"],
-    "script-src": ["'self'", "'unsafe-inline'"],
+    "script-src": nonce ? ["'self'", `'nonce-${nonce}'`] : ["'self'"],
     "style-src": ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
     "font-src": ["'self'", "https://fonts.gstatic.com", "data:"],
     "img-src": ["'self'", "data:", "blob:", ...api],
@@ -51,7 +50,7 @@ export function buildCsp(apiOrigin: string): string {
 }
 
 /** Headers to add to a response. Existing headers of the same name are kept. */
-export function securityHeaders(options: { isProd: boolean; apiOrigin: string; isHtml: boolean }): Record<string, string> {
+export function securityHeaders(options: { isProd: boolean; apiOrigin: string; isHtml: boolean; nonce?: string | undefined }): Record<string, string> {
   const headers: Record<string, string> = {
     "X-Content-Type-Options": "nosniff",
     "Referrer-Policy": "strict-origin-when-cross-origin",
@@ -59,17 +58,20 @@ export function securityHeaders(options: { isProd: boolean; apiOrigin: string; i
   };
   if (options.isProd) {
     headers["Strict-Transport-Security"] = "max-age=31536000";
-    if (options.isHtml) headers["Content-Security-Policy"] = buildCsp(options.apiOrigin);
+    if (options.isHtml) {
+      headers["Content-Security-Policy"] = buildCsp(options.apiOrigin, options.nonce);
+      if (options.nonce) headers["Cache-Control"] = "no-store";
+    }
   }
   return headers;
 }
 
 /** Returns a copy of `response` with the security headers applied. */
-export function withSecurityHeaders(response: Response, options: { isProd: boolean; apiOrigin: string }): Response {
+export function withSecurityHeaders(response: Response, options: { isProd: boolean; apiOrigin: string; nonce?: string | undefined }): Response {
   const isHtml = (response.headers.get("content-type") ?? "").includes("text/html");
   const headers = new Headers(response.headers);
   for (const [name, value] of Object.entries(securityHeaders({ ...options, isHtml }))) {
-    if (!headers.has(name)) headers.set(name, value);
+    if (!headers.has(name) || name === "Cache-Control") headers.set(name, value);
   }
   return new Response(response.body, { status: response.status, statusText: response.statusText, headers });
 }

@@ -34,10 +34,13 @@ export function AuthImage({ postId, alt, className, fallback }: AuthImageProps) 
 
     fetchMediaBlob(postId, primaryId, controller.signal)
       .then((blob) => {
+        if (controller.signal.aborted) return;
         objectUrl = URL.createObjectURL(blob);
         setUrl(objectUrl);
       })
-      .catch(() => setUrl(null));
+      .catch(() => {
+        if (!controller.signal.aborted) setUrl(null);
+      });
 
     return () => {
       controller.abort();

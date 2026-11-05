@@ -132,7 +132,7 @@ const copy = {
   },
 };
 
-type Mode = "new" | "loading" | "edit" | "revise" | "blocked" | "notFound";
+type Mode = "new" | "loading" | "edit" | "revise" | "blocked" | "notFound" | "loadError";
 
 function ContributePage() {
   const { lang } = useLanguage();
@@ -164,8 +164,8 @@ function ContributePage() {
 
   const mode: Mode = !edit
     ? "new"
-    : postQuery.isError
-      ? "notFound"
+    : postQuery.isError && !existing
+      ? isApiError(postQuery.error) && postQuery.error.kind === "notFound" ? "notFound" : "loadError"
       : !existing
         ? "loading"
         : existing.status === 2
@@ -305,7 +305,7 @@ function ContributePage() {
   }
 
   // Guards go AFTER all hooks above (React requires hooks to run every time).
-  if (!isReady) return null;
+  if (!isReady) return <p role="status" className="py-12 text-center">{t.loading}</p>;
   if (!isLoggedIn) return <AccessNotice />;
 
   const backToMine = (
@@ -316,6 +316,17 @@ function ContributePage() {
 
   if (mode === "loading") {
     return <div className="mx-auto max-w-2xl px-4 py-16 text-center text-muted-foreground" aria-busy="true">{t.loading}</div>;
+  }
+
+  if (mode === "loadError") {
+    return (
+      <div className="mx-auto max-w-2xl px-4 py-16 text-center">
+        <p role="alert" className="text-muted-foreground">{apiErrorMessage(postQuery.error, lang)}</p>
+        <Button className="mt-6" onClick={() => void postQuery.refetch()} disabled={postQuery.isFetching}>
+          {lang === "ar" ? "حاول مرة أخرى" : "Try again"}
+        </Button>
+      </div>
+    );
   }
 
   if (mode === "notFound" || mode === "blocked") {
@@ -370,13 +381,14 @@ function ContributePage() {
             maxLength={LIMITS.title}
             defaultValue={existing?.title ?? ""}
             aria-invalid={Boolean(fe("Title"))}
+            aria-describedby={fe("Title") ? "article-title-error" : undefined}
             className="h-11 bg-background"
           />
-          {fe("Title") && <p className="text-sm text-destructive">{fe("Title")}</p>}
+          {fe("Title") && <p id="article-title-error" className="text-sm text-destructive">{fe("Title")}</p>}
         </div>
 
         <div className="space-y-2">
-          <Label>{t.category}</Label>
+          <Label htmlFor="article-category">{t.category}</Label>
           <Select
             value={categoryId}
             onValueChange={(v) => {
@@ -384,7 +396,13 @@ function ContributePage() {
               setShowCategoryError(false);
             }}
           >
-            <SelectTrigger className="h-11 bg-background">
+            <SelectTrigger
+              id="article-category"
+              aria-required="true"
+              aria-invalid={showCategoryError || Boolean(fe("CategoryId"))}
+              aria-describedby={showCategoryError || fe("CategoryId") ? "article-category-error" : undefined}
+              className="h-11 bg-background"
+            >
               <SelectValue placeholder={t.categoryPlaceholder} />
             </SelectTrigger>
             <SelectContent>
@@ -396,7 +414,7 @@ function ContributePage() {
             </SelectContent>
           </Select>
           {(showCategoryError || fe("CategoryId")) && (
-            <p className="text-sm text-destructive">{fe("CategoryId") ?? t.categoryError}</p>
+            <p id="article-category-error" className="text-sm text-destructive">{fe("CategoryId") ?? t.categoryError}</p>
           )}
         </div>
 
@@ -411,9 +429,10 @@ function ContributePage() {
             rows={3}
             defaultValue={existing?.summary ?? ""}
             aria-invalid={Boolean(fe("Summary"))}
+            aria-describedby={fe("Summary") ? "article-summary-error" : undefined}
             className="bg-background"
           />
-          {fe("Summary") && <p className="text-sm text-destructive">{fe("Summary")}</p>}
+          {fe("Summary") && <p id="article-summary-error" className="text-sm text-destructive">{fe("Summary")}</p>}
         </div>
 
         <div className="space-y-2">
@@ -427,9 +446,10 @@ function ContributePage() {
             rows={10}
             defaultValue={existing?.content ?? ""}
             aria-invalid={Boolean(fe("Content"))}
+            aria-describedby={fe("Content") ? "article-content-error" : undefined}
             className="bg-background"
           />
-          {fe("Content") && <p className="text-sm text-destructive">{fe("Content")}</p>}
+          {fe("Content") && <p id="article-content-error" className="text-sm text-destructive">{fe("Content")}</p>}
         </div>
 
         {mode === "revise" ? (
@@ -443,10 +463,11 @@ function ContributePage() {
               maxLength={LIMITS.changeDescription}
               rows={3}
               aria-invalid={Boolean(fe("ChangeDescription"))}
+              aria-describedby={`article-change-hint${fe("ChangeDescription") ? " article-change-error" : ""}`}
               className="bg-background"
             />
-            <p className="text-xs text-muted-foreground">{t.changeDescriptionHint}</p>
-            {fe("ChangeDescription") && <p className="text-sm text-destructive">{fe("ChangeDescription")}</p>}
+            <p id="article-change-hint" className="text-xs text-muted-foreground">{t.changeDescriptionHint}</p>
+            {fe("ChangeDescription") && <p id="article-change-error" className="text-sm text-destructive">{fe("ChangeDescription")}</p>}
             <p className="text-xs text-muted-foreground">{t.reviseImageNote}</p>
           </div>
         ) : (

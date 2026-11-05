@@ -84,6 +84,25 @@ describe("request", () => {
     expect(tokens).toEqual([false, true]);
   });
 
+  test("does not retry a mutation or sign out the new user after an account switch", async () => {
+    let identity = {};
+    setApiTokenProvider(async () => "token", () => identity);
+    const onUnauthorized = mock(() => {});
+    setApiUnauthorizedHandler(onUnauthorized);
+    const fetchMock = mock(async () => {
+      identity = {};
+      return jsonResponse(401, {});
+    });
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
+
+    const error = await request("/api/heritage-posts", { auth: "required", method: "POST" })
+      .catch((e: unknown) => e);
+
+    expect(isApiError(error) && error.kind).toBe("canceled");
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(onUnauthorized).not.toHaveBeenCalled();
+  });
+
   test("a second 401 calls the unauthorized handler and does not loop", async () => {
     let calls = 0;
     const onUnauthorized = mock(() => {});

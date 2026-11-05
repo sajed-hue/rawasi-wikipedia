@@ -1,5 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation } from "@tanstack/react-query";
+import * as Tabs from "@radix-ui/react-tabs";
 import { Archive, ArrowLeft, ArrowRight, Bookmark, CheckCircle2, Clock3, FilePen, FileText, Image as ImageIcon, Pencil, Plus, RefreshCw, Search, Send, Trash2, XCircle } from "lucide-react";
 import { useEffect, useState } from "react";
 import { AccessNotice } from "@/components/AccessNotice";
@@ -216,7 +217,7 @@ function ContributionsPage() {
   const totalPosts = useMyPosts({ page: 1, pageSize: 1 }, showMine);
   const publishedPosts = useMyPosts({ page: 1, pageSize: 1, status: HeritagePostStatus.Approved }, showMine);
   const pendingPosts = useMyPosts({ page: 1, pageSize: 1, status: HeritagePostStatus.PendingReview }, showMine);
-  const saved = useSavedPosts(savedIds);
+  const saved = useSavedPosts(savedIds, isLoggedIn && tab === "saved");
   const invalidate = useInvalidatePosts();
 
   useEffect(() => setSavedIds(getSavedIds()), []);
@@ -294,7 +295,7 @@ function ContributionsPage() {
   }
 
   // Guards go after all the hooks above (React needs hooks to run every time).
-  if (!isReady) return null;
+  if (!isReady) return <p role="status" className="py-12 text-center">{t.loading}</p>;
   if (!isLoggedIn) return <AccessNotice />;
 
   const submissions = (myPosts.data?.items ?? []).map((p) => toSubmission(p, catIndex.name));
@@ -324,24 +325,20 @@ function ContributionsPage() {
         </p>
       )}
 
-      <div className="mt-8 flex gap-2 border-b border-border" role="tablist">
-        {(["mine", "saved"] as const).map((key) => (
-          <button
-            key={key}
-            type="button"
-            role="tab"
-            aria-selected={tab === key}
-            onClick={() => setTab(key)}
-            className={`-mb-px border-b-2 px-4 py-2.5 text-sm font-semibold transition-colors ${tab === key ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-primary"}`}
-          >
-            {key === "mine" ? t.tabMine : t.tabSaved}
-            {key === "saved" ? ` (${saved.posts.length})` : ""}
-          </button>
-        ))}
-      </div>
+      <Tabs.Root value={tab} dir={dir} activationMode="manual"
+        onValueChange={(value) => setTab(value as "mine" | "saved")}
+      >
+        <Tabs.List aria-label={t.title} className="mt-8 flex gap-2 border-b border-border">
+          {(["mine", "saved"] as const).map((key) => (
+            <Tabs.Trigger key={key} value={key}
+              className={`-mb-px border-b-2 px-4 py-2.5 text-sm font-semibold transition-colors ${tab === key ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-primary"}`}
+            >
+              {key === "mine" ? t.tabMine : t.tabSaved}
+            </Tabs.Trigger>
+          ))}
+        </Tabs.List>
 
-      {tab === "mine" && (
-        <>
+        <Tabs.Content value="mine">
           <section aria-label={t.total} className="mt-9 grid gap-4 sm:grid-cols-3">
             {stats.map(({ label, count, icon: Icon, tone }) => <div key={label} className="flex items-center gap-4 rounded-2xl border border-border bg-card p-5 shadow-[var(--shadow-card)]"><span className={`grid h-14 w-14 shrink-0 place-items-center rounded-full ${tone}`}><Icon className="h-7 w-7" /></span><div><p className="text-sm text-muted-foreground">{label}</p><p className="mt-1 text-3xl font-bold tabular-nums text-foreground">{count ?? "—"}</p></div></div>)}
           </section>
@@ -424,12 +421,17 @@ function ContributionsPage() {
               </nav>
             )}
           </section>
-        </>
-      )}
+        </Tabs.Content>
 
-      {tab === "saved" && (
-        <section className="mt-8" aria-live="polite">
-          {!saved.isLoading && saved.posts.length === 0 && (
+        <Tabs.Content value="saved" className="mt-8">
+          {saved.isLoading && <p role="status" className="py-8 text-center">{t.loading}</p>}
+          {saved.hasLoadError && (
+            <div className="py-8 text-center">
+              <p role="alert" className="text-muted-foreground">{t.loadError}</p>
+              <Button variant="outline" className="mt-4 rounded-full" onClick={() => void saved.retry()}><RefreshCw />{t.retry}</Button>
+            </div>
+          )}
+          {!saved.isLoading && !saved.hasLoadError && saved.posts.length === 0 && (
             <div className="py-16 text-center">
               <Bookmark className="mx-auto h-10 w-10 text-muted-foreground" />
               <p className="mt-4 text-muted-foreground">{t.savedEmpty}</p>
@@ -455,8 +457,8 @@ function ContributionsPage() {
               </article>
             ))}
           </div>
-        </section>
-      )}
+        </Tabs.Content>
+      </Tabs.Root>
 
       <Dialog open={selected !== null} onOpenChange={(open) => { if (!open) setSelected(null); }}>
         <DialogContent dir={dir} className="max-h-[90dvh] w-[calc(100%-2rem)] overflow-y-auto rounded-2xl border-border shadow-[var(--shadow-card)]">

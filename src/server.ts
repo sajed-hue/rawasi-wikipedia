@@ -52,17 +52,23 @@ function isH3SwallowedErrorBody(body: string): boolean {
 
 export default {
   async fetch(request: Request, env: unknown, ctx: unknown) {
+    const nonce = HEADER_OPTIONS.isProd ? crypto.randomUUID() : undefined;
+    const headers = new Headers(request.headers);
+    headers.delete("x-rawasi-csp-nonce");
+    if (nonce) headers.set("x-rawasi-csp-nonce", nonce);
+    const options = { ...HEADER_OPTIONS, nonce };
+
     try {
       const handler = await getServerEntry();
-      const response = await handler.fetch(request, env, ctx);
-      return withSecurityHeaders(await normalizeCatastrophicSsrResponse(response), HEADER_OPTIONS);
+      const response = await handler.fetch(new Request(request, { headers }), env, ctx);
+      return withSecurityHeaders(await normalizeCatastrophicSsrResponse(response), options);
     } catch (error) {
       console.error(error);
       const errorPage = new Response(renderErrorPage(), {
         status: 500,
         headers: { "content-type": "text/html; charset=utf-8" },
       });
-      return withSecurityHeaders(errorPage, HEADER_OPTIONS);
+      return withSecurityHeaders(errorPage, options);
     }
   },
 };

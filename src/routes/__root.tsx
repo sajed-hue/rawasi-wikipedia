@@ -1,20 +1,21 @@
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClientProvider } from "@tanstack/react-query";
 import {
   Outlet,
   Link,
-  createRootRouteWithContext,
+  createRootRoute,
   useRouter,
   HeadContent,
   Scripts,
   type ErrorComponentProps,
 } from "@tanstack/react-router";
-import { useEffect, type ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 
 import appCss from "../styles.css?url";
 import { Footer } from "@/components/Footer";
 import { Header } from "@/components/Header";
 import { LanguageProvider } from "@/lib/i18n";
-import { MockAuthProvider } from "@/lib/mock-auth";
+import { AuthProvider, useAuth } from "@/lib/auth";
+import { createSessionQueryClient } from "@/lib/session-query-client";
 import { SessionNotice } from "@/components/SessionNotice";
 import { SmoothScroll } from "@/components/SmoothScroll";
 
@@ -76,7 +77,7 @@ function ErrorComponent({ error, reset }: ErrorComponentProps) {
   );
 }
 
-export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()({
+export const Route = createRootRoute({
   head: () => ({
     meta: [
       { charSet: "utf-8" },
@@ -121,25 +122,35 @@ function RootShell({ children }: { children: ReactNode }) {
 }
 
 function RootComponent() {
-  const { queryClient } = Route.useRouteContext();
+  return (
+    <LanguageProvider>
+      <AuthProvider>
+        <SessionBoundary />
+      </AuthProvider>
+    </LanguageProvider>
+  );
+}
+
+function SessionBoundary() {
+  const { status, firebaseUser, role } = useAuth();
+  const scope = firebaseUser ? `user:${firebaseUser.uid}:${status}:${role}` : "anonymous";
+  return <SessionContent key={scope} />;
+}
+
+function SessionContent() {
+  const [queryClient] = useState(createSessionQueryClient);
 
   return (
     <QueryClientProvider client={queryClient}>
-      <LanguageProvider>
-        <MockAuthProvider>
-          <SmoothScroll />
-          <div className="flex min-h-screen flex-col">
-            <Header />
-            <SessionNotice />
-            <main className="flex-1">
-              {/* Required: nested routes render here. */}
-              <Outlet />
-            </main>
-            <Footer />
-            
-          </div>
-        </MockAuthProvider>
-      </LanguageProvider>
+      <SmoothScroll />
+      <div className="flex min-h-screen flex-col">
+        <Header />
+        <SessionNotice />
+        <main className="flex-1">
+          <Outlet />
+        </main>
+        <Footer />
+      </div>
     </QueryClientProvider>
   );
 }

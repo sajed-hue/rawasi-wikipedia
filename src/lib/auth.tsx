@@ -5,10 +5,6 @@
 // authority; the backend is the authorization authority. Role is used ONLY for
 // UI affordances — the backend still enforces every action.
 //
-// NOTE: This provider is not yet mounted in __root.tsx. The swap from
-// MockAuthProvider happens in the auth milestone, together with the login/signup
-// rewire, so the branch stays in a working state throughout.
-
 import {
   createContext,
   useCallback,
@@ -87,6 +83,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [firebaseUser, setFirebaseUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<UserProfileDto | null>(null);
   const firebaseUserRef = useRef<User | null>(null);
+  const profileRequestRef = useRef(0);
   const statusRef = useRef<AuthStatus>("loading");
   statusRef.current = status;
 
@@ -96,7 +93,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const current = getFirebaseAuth()?.currentUser;
       if (!current) return null;
       return current.getIdToken(forceRefresh);
-    });
+    }, () => getFirebaseAuth()?.currentUser ?? null);
     setApiUnauthorizedHandler(() => {
       // Backend rejected the token (expired or account deactivated). Clear the session.
       void getFirebaseAuth()?.signOut();
@@ -105,11 +102,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const loadProfile = useCallback(async (): Promise<void> => {
+    const user = getFirebaseAuth()?.currentUser;
+    if (!user) return;
+    const requestId = ++profileRequestRef.current;
+    const isCurrent = () => requestId === profileRequestRef.current && getFirebaseAuth()?.currentUser === user;
     try {
       const me = await api.get<UserProfileDto>("/api/users/me", { auth: "required" });
+      if (!isCurrent()) return;
       setProfile(me);
       setStatus("authenticated");
     } catch (error) {
+      if (!isCurrent()) return;
       // 401 (inactive/expired) or 403: treat as signed out and clear Firebase session.
       if (isApiError(error) && (error.kind === "authentication" || error.kind === "authorization")) {
         setProfile(null);
@@ -158,6 +161,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
 
     const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (firebaseUserRef.current !== user) {
+        setProfile(null);
+        setStatus(user ? "loading" : "unauthenticated");
+      }
       firebaseUserRef.current = user;
       setFirebaseUser(user);
       failedAttempts = 0;
@@ -198,7 +205,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // The first authenticated call to the backend provisions the local user row.
       const name = normalizeDisplayName(displayName);
       if (name && credential.user) {
-        await updateProfile(credential.user, { displayName: name });
+        try {
+          await updateProfile(credential.user, { displayName: name });
+        } catch {
+          // The account already exists. The backend profile can still be updated.
+        }
+        if (auth.currentUser !== credential.user) return;
         // createUser fires onAuthStateChanged immediately, so the profile request that
         // provisions the row carries a token issued BEFORE the name existed and the backend
         // stores a placeholder. Save the name explicitly; the account already exists, so a

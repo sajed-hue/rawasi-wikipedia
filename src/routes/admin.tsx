@@ -1,5 +1,6 @@
 import { createFileRoute, Navigate, useNavigate } from "@tanstack/react-router";
 import { ClipboardCheck, History, Tags, Users } from "lucide-react";
+import * as Tabs from "@radix-ui/react-tabs";
 
 import { AuditPanel } from "@/components/admin/AuditPanel";
 import { CategoriesPanel } from "@/components/admin/CategoriesPanel";
@@ -28,11 +29,13 @@ export const Route = createFileRoute("/admin")({
 const copy = {
   ar: {
     title: "لوحة الإدارة",
+    loading: "جارٍ التحقّق من الجلسة…",
     subtitle: "راجع المقالات، وأدِر التصنيفات والمستخدمين، وتابع سجل العمليات.",
     tabs: { moderation: "المراجعة", categories: "التصنيفات", users: "المستخدمون", audit: "سجل العمليات" } as Record<Tab, string>,
   },
   en: {
     title: "Admin console",
+    loading: "Checking your session…",
     subtitle: "Review articles, manage categories and users, and follow the activity log.",
     tabs: { moderation: "Moderation", categories: "Categories", users: "Users", audit: "Audit log" } as Record<Tab, string>,
   },
@@ -48,7 +51,7 @@ function AdminPage() {
   const navigate = useNavigate({ from: "/admin" });
 
   // Guards go AFTER all hooks above (React needs hooks to run every time).
-  if (!isReady) return null;
+  if (!isReady) return <p role="status" className="py-12 text-center">{t.loading}</p>;
   if (!isAdmin) return <Navigate to="/" />;
 
   return (
@@ -58,31 +61,27 @@ function AdminPage() {
         <p className="mt-2 text-muted-foreground">{t.subtitle}</p>
       </header>
 
-      <div className="mt-8 flex gap-1 overflow-x-auto border-b border-border" role="tablist">
+      <Tabs.Root value={tab} dir={dir} activationMode="manual"
+        onValueChange={(value) => void navigate({ search: { tab: value as Tab }, replace: true })}
+      >
+        <Tabs.List aria-label={t.title} className="mt-8 flex gap-1 overflow-x-auto border-b border-border">
         {TABS.map((key) => {
           const Icon = TAB_ICONS[key];
           return (
-            <button
-              key={key}
-              type="button"
-              role="tab"
-              aria-selected={tab === key}
-              onClick={() => void navigate({ search: { tab: key }, replace: true })}
+            <Tabs.Trigger key={key} value={key}
               className={`-mb-px inline-flex shrink-0 items-center gap-2 border-b-2 px-4 py-2.5 text-sm font-semibold transition-colors ${tab === key ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-primary"}`}
             >
-              <Icon className="h-4 w-4" />
+              <Icon aria-hidden="true" className="h-4 w-4" />
               {t.tabs[key]}
-            </button>
+            </Tabs.Trigger>
           );
         })}
-      </div>
-
-      <section className="mt-8" role="tabpanel">
-        {tab === "moderation" && <ModerationPanel enabled={isAdmin} />}
-        {tab === "categories" && <CategoriesPanel enabled={isAdmin} />}
-        {tab === "users" && <UsersPanel enabled={isAdmin} />}
-        {tab === "audit" && <AuditPanel enabled={isAdmin} />}
-      </section>
+        </Tabs.List>
+        <Tabs.Content value="moderation" className="mt-8"><ModerationPanel enabled={isAdmin} /></Tabs.Content>
+        <Tabs.Content value="categories" className="mt-8"><CategoriesPanel enabled={isAdmin} /></Tabs.Content>
+        <Tabs.Content value="users" className="mt-8"><UsersPanel enabled={isAdmin} /></Tabs.Content>
+        <Tabs.Content value="audit" className="mt-8"><AuditPanel enabled={isAdmin} /></Tabs.Content>
+      </Tabs.Root>
     </div>
   );
 }
