@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useRef, useState, type SyntheticEvent } from "react";
+import { useEffect, useRef, useState, type SyntheticEvent } from "react";
 
 import logo from "@/assets/logo.png";
 import { AuthIllustration } from "@/components/AuthIllustration";
@@ -70,12 +70,17 @@ function LoginPage() {
   const { lang, dir } = useLanguage();
   const text = copy[lang];
   const navigate = useNavigate();
-  const { signInWithEmail, sendPasswordReset } = useAuth();
+  const { status, signInWithEmail, sendPasswordReset } = useAuth();
 
   const emailRef = useRef<HTMLInputElement>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
+  const signingIn = submitting || status === "loading";
+
+  useEffect(() => {
+    if (status === "authenticated") void navigate({ to: "/", replace: true });
+  }, [status, navigate]);
 
   async function handleLogin(event: SyntheticEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -88,8 +93,6 @@ function LoginPage() {
     setSubmitting(true);
     try {
       await signInWithEmail(email, password);
-      // The backend assigns the role; the UI only reads it. Go home on success.
-      navigate({ to: "/" });
     } catch (err) {
       setError(firebaseAuthErrorMessage(err, lang));
     } finally {
@@ -188,8 +191,8 @@ function LoginPage() {
                 </p>
               )}
 
-              <Button type="submit" size="lg" disabled={submitting} className="h-11 w-full rounded-full">
-                {submitting ? text.submitting : text.submit}
+              <Button type="submit" size="lg" disabled={signingIn} className="h-11 w-full rounded-full">
+                {signingIn ? text.submitting : text.submit}
               </Button>
             </form>
 

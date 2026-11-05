@@ -82,7 +82,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [status, setStatus] = useState<AuthStatus>("loading");
   const [firebaseUser, setFirebaseUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<UserProfileDto | null>(null);
-  const firebaseUserRef = useRef<User | null>(null);
+  const firebaseUserRef = useRef<User | null | undefined>(undefined);
   const profileRequestRef = useRef(0);
   const statusRef = useRef<AuthStatus>("loading");
   statusRef.current = status;
@@ -128,15 +128,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  // Observe Firebase auth state. Runs on the client only; on the server (or when
-  // Firebase is unconfigured) we resolve immediately to "unauthenticated".
+  const syncUser = useCallback((user: User | null) => {
+    if (firebaseUserRef.current === user) return;
+    firebaseUserRef.current = user;
+    setFirebaseUser(user);
+    setProfile(null);
+    setStatus(user ? "loading" : "unauthenticated");
+  }, []);
+
   useEffect(() => {
     const auth = getFirebaseAuth();
     if (!auth) {
-      setStatus("unauthenticated");
+      syncUser(null);
       return;
     }
 
+    return onAuthStateChanged(auth, (user) => {
+      if (auth.currentUser === user) syncUser(user);
+    });
+  }, [syncUser]);
+
+  useEffect(() => {
+    if (!firebaseUser) return;
+
+    let active = true;
     let retryTimer: ReturnType<typeof setTimeout> | undefined;
     let failedAttempts = 0;
     const clearRetry = () => {
@@ -146,6 +161,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     // Load the profile; on a transient failure, retry with backoff while still signed in.
     const attemptLoad = () => {
+      if (!active || getFirebaseAuth()?.currentUser !== firebaseUser) return;
       clearRetry();
       void loadProfile()
         .then(() => {
@@ -154,32 +170,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         .catch(() => {
           const delay = PROFILE_RETRY_DELAYS_MS[failedAttempts];
           failedAttempts += 1;
-          if (delay !== undefined && firebaseUserRef.current) {
+          if (delay !== undefined && active && getFirebaseAuth()?.currentUser === firebaseUser) {
             retryTimer = setTimeout(attemptLoad, delay);
           }
         });
     };
 
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      if (firebaseUserRef.current !== user) {
-        setProfile(null);
-        setStatus(user ? "loading" : "unauthenticated");
-      }
-      firebaseUserRef.current = user;
-      setFirebaseUser(user);
-      failedAttempts = 0;
-      if (user) {
-        attemptLoad();
-      } else {
-        clearRetry();
-        setProfile(null);
-        setStatus("unauthenticated");
-      }
-    });
+    attemptLoad();
 
     // Coming back to the tab is a good moment to retry a failed profile load.
     const onFocus = () => {
-      if (firebaseUserRef.current && statusRef.current === "error") {
+      if (statusRef.current === "error") {
         failedAttempts = 0;
         attemptLoad();
       }
@@ -187,16 +188,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     window.addEventListener("focus", onFocus);
 
     return () => {
-      unsubscribe();
+      active = false;
       clearRetry();
       window.removeEventListener("focus", onFocus);
     };
-  }, [loadProfile]);
+  }, [firebaseUser, loadProfile]);
 
   const signInWithEmail = useCallback(async (email: string, password: string) => {
-    await signInWithEmailAndPassword(requireAuth(), email, password);
-    // onAuthStateChanged hydrates the profile.
-  }, []);
+    const auth = requireAuth();
+    const { user } = await signInWithEmailAndPassword(auth, email, password);
+    if (auth.currentUser === user) syncUser(user);
+  }, [syncUser]);
 
   const registerWithEmail = useCallback(
     async (email: string, password: string, displayName?: string) => {
