@@ -1,15 +1,16 @@
 import { createFileRoute, Navigate, useNavigate } from "@tanstack/react-router";
-import { ClipboardCheck, History, Tags, Users } from "lucide-react";
+import { ClipboardCheck, History, Search, Tags, Users } from "lucide-react";
 import * as Tabs from "@radix-ui/react-tabs";
 
 import { AuditPanel } from "@/components/admin/AuditPanel";
 import { CategoriesPanel } from "@/components/admin/CategoriesPanel";
 import { ModerationPanel } from "@/components/admin/ModerationPanel";
+import { ResearchPanel } from "@/components/admin/ResearchPanel";
 import { UsersPanel } from "@/components/admin/UsersPanel";
 import { useLanguage } from "@/lib/i18n";
 import { useMockAuth } from "@/lib/mock-auth";
 
-const TABS = ["moderation", "categories", "users", "audit"] as const;
+const TABS = ["moderation", "research", "categories", "users", "audit"] as const;
 type Tab = (typeof TABS)[number];
 
 /**
@@ -31,17 +32,17 @@ const copy = {
     title: "لوحة الإدارة",
     loading: "جارٍ التحقّق من الجلسة…",
     subtitle: "راجع المقالات، وأدِر التصنيفات والمستخدمين، وتابع سجل العمليات.",
-    tabs: { moderation: "المراجعة", categories: "التصنيفات", users: "المستخدمون", audit: "سجل العمليات" } as Record<Tab, string>,
+    tabs: { moderation: "المراجعة", research: "مراجعة نتائج البحث", categories: "التصنيفات", users: "المستخدمون", audit: "سجل العمليات" } as Record<Tab, string>,
   },
   en: {
     title: "Admin console",
     loading: "Checking your session…",
     subtitle: "Review articles, manage categories and users, and follow the activity log.",
-    tabs: { moderation: "Moderation", categories: "Categories", users: "Users", audit: "Audit log" } as Record<Tab, string>,
+    tabs: { moderation: "Moderation", research: "Research review", categories: "Categories", users: "Users", audit: "Audit log" } as Record<Tab, string>,
   },
 };
 
-const TAB_ICONS = { moderation: ClipboardCheck, categories: Tags, users: Users, audit: History } as const;
+const TAB_ICONS = { moderation: ClipboardCheck, research: Search, categories: Tags, users: Users, audit: History } as const;
 
 function AdminPage() {
   const { lang, dir } = useLanguage();
@@ -78,6 +79,7 @@ function AdminPage() {
         })}
         </Tabs.List>
         <Tabs.Content value="moderation" className="mt-8"><ModerationPanel enabled={isAdmin} /></Tabs.Content>
+        <Tabs.Content value="research" className="mt-8"><ResearchPanel enabled={isAdmin} /></Tabs.Content>
         <Tabs.Content value="categories" className="mt-8"><CategoriesPanel enabled={isAdmin} /></Tabs.Content>
         <Tabs.Content value="users" className="mt-8"><UsersPanel enabled={isAdmin} /></Tabs.Content>
         <Tabs.Content value="audit" className="mt-8"><AuditPanel enabled={isAdmin} /></Tabs.Content>
