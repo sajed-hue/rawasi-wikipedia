@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { ResearchKeywordsPanel } from "@/components/admin/ResearchKeywordsPanel";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -65,6 +66,7 @@ export function ResearchPanel({ enabled }: { enabled: boolean }) {
 
   return (
     <section className="space-y-4">
+      <ResearchKeywordsPanel enabled={enabled} />
       <Button variant="outline" onClick={() => void submissions.refetch()} disabled={submissions.isFetching}>
         {t.refresh}
       </Button>
